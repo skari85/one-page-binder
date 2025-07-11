@@ -6,10 +6,14 @@ import { useState, useEffect, useRef } from "react"
 import { Button, type ButtonProps } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Moon, Sun, Download, Upload, Lock, Unlock, FileText, Clock, ArrowRight, WifiOff } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Moon, Sun, Download, Upload, Lock, Unlock, FileText, Clock, ArrowRight, WifiOff, HardDrive } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import { OfflineIndicator } from "@/components/offline-indicator"
+import { FileSystemDemo } from "@/components/file-system-demo"
+import { TauriNativeFS } from "@/components/tauri-native-fs"
+import { isTauri } from "@/lib/tauri-api"
 
 export default function OnePageBinder() {
   const [content, setContent] = useState("")
@@ -28,6 +32,7 @@ export default function OnePageBinder() {
   const [lastTypingTime, setLastTypingTime] = useState(0)
   const [timestampFormat, setTimestampFormat] = useState<"datetime" | "time" | "date">("datetime")
   const [isOffline, setIsOffline] = useState(false)
+  const [showNativeFileSystem, setShowNativeFileSystem] = useState(false)
 
   // Ensure component is mounted before accessing theme
   useEffect(() => {
@@ -451,6 +456,17 @@ export default function OnePageBinder() {
           </div>
 
           <div className="flex items-center space-x-2 overflow-x-auto sm:overflow-visible">
+            {mounted && isTauri() && (
+              <Button
+                variant={showNativeFileSystem ? "default" : "ghost"}
+                size="icon"
+                type="button"
+                onClick={() => setShowNativeFileSystem(!showNativeFileSystem)}
+                title="Native file system"
+              >
+                <HardDrive className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -509,6 +525,22 @@ export default function OnePageBinder() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
+        {showNativeFileSystem && (
+          <div className="mb-8">
+            <Tabs defaultValue="cross-platform" className="w-full max-w-3xl mx-auto">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="cross-platform">Cross-Platform API</TabsTrigger>
+                <TabsTrigger value="native" disabled={!isTauri()}>Native Tauri API</TabsTrigger>
+              </TabsList>
+              <TabsContent value="cross-platform" className="mt-4">
+                <FileSystemDemo />
+              </TabsContent>
+              <TabsContent value="native" className="mt-4">
+                <TauriNativeFS />
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           value={content}

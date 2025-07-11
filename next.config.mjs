@@ -9,7 +9,18 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // The server is already running on port 3001 as shown in the terminal output
+  output: 'export',
+  distDir: 'out',
+  // Disable hot reloading to prevent infinite compilation loop
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        poll: false,
+        ignored: /node_modules/,
+      }
+    }
+    return config
+  },
 }
 
 export default nextConfig
