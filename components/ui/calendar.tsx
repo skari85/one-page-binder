@@ -53,10 +53,16 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
-      components={{
-        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-      }}
+      components={
+        {
+          IconLeft: (iconProps: React.HTMLAttributes<SVGElement>) => (
+            <ChevronLeft className="h-4 w-4" {...iconProps} />
+          ),
+          IconRight: (iconProps: React.HTMLAttributes<SVGElement>) => (
+            <ChevronRight className="h-4 w-4" {...iconProps} />
+          ),
+        } as any
+      }
       {...props}
     />
   )

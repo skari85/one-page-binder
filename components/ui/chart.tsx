@@ -34,6 +34,17 @@ function useChart() {
   return context
 }
 
+const _useId = (React as any).useId || (() => {
+  const idRef = React.useRef<string | undefined>(undefined)
+  if (!idRef.current) {
+    idRef.current = Math.random().toString(36).slice(2, 10)
+    if (process.env.NODE_ENV !== "production") {
+      idRef.current = `id-${idRef.current}`
+    }
+  }
+  return idRef.current
+})
+
 const ChartContainer = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -43,7 +54,7 @@ const ChartContainer = React.forwardRef<
     >["children"]
   }
 >(({ id, className, children, config, ...props }, ref) => {
-  const uniqueId = React.useId()
+  const uniqueId = _useId()
   const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
 
   return (
@@ -111,6 +122,8 @@ const ChartTooltipContent = React.forwardRef<
       indicator?: "line" | "dot" | "dashed"
       nameKey?: string
       labelKey?: string
+      payload?: any[]
+      label?: string
     }
 >(
   (
@@ -261,7 +274,10 @@ const ChartLegend = RechartsPrimitive.Legend
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
+    {
+      payload?: any[]
+      verticalAlign?: "top" | "bottom" | "middle" | undefined
+    } & {
       hideIcon?: boolean
       nameKey?: string
     }
