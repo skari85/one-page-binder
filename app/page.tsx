@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Moon, Sun, Download, Upload, Lock, Unlock, FileText, Clock, ArrowRight, WifiOff, HardDrive } from "lucide-react"
+import { Logo } from "@/components/logo"
 import { useTheme } from "next-themes"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import { OfflineIndicator } from "@/components/offline-indicator"
@@ -329,9 +330,7 @@ export default function OnePageBinder() {
         <div className="max-w-md w-full space-y-8 text-center animate-in fade-in-50 duration-500">
           {/* Logo */}
           <div className="space-y-4">
-            <div className="w-24 h-24 mx-auto bg-amber-100 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-700">
-              <FileText className="w-12 h-12 text-amber-600 dark:text-amber-400" />
-            </div>
+            <Logo size={96} className="mx-auto animate-in zoom-in-75 duration-700" />
             <div className="space-y-2">
               <h1 className="text-3xl font-bold text-foreground">One Page Binder</h1>
               <p className="text-muted-foreground text-lg">
@@ -440,9 +439,7 @@ export default function OnePageBinder() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/20 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
+            <Logo size={32} className="rounded-lg" />
             <h1 className="text-xl font-bold">One Page Binder</h1>
             {isSaving && (
               <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>
