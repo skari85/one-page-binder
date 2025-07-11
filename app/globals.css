@@ -81,3 +81,31 @@ textarea::-webkit-scrollbar-thumb:hover {
 * {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
+
+/* Improve focus styles for better accessibility */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Improve textarea appearance */
+textarea {
+  transition: all 0.2s ease;
+}
+
+textarea:focus {
+  box-shadow: 0 0 0 2px hsla(var(--primary), 0.2);
+  border-radius: 0.375rem;
+}
+
+/* Improve mobile experience */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  textarea {
+    padding: 1rem !important;
+  }
+}

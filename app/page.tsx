@@ -3,11 +3,13 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
+import { Button, type ButtonProps } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Moon, Sun, Download, Upload, Lock, Unlock, FileText, Clock, ArrowRight } from "lucide-react"
+import { Moon, Sun, Download, Upload, Lock, Unlock, FileText, Clock, ArrowRight, WifiOff } from "lucide-react"
 import { useTheme } from "next-themes"
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
+import { OfflineIndicator } from "@/components/offline-indicator"
 
 export default function OnePageBinder() {
   const [content, setContent] = useState("")
@@ -18,16 +20,33 @@ export default function OnePageBinder() {
   const [showUnlockDialog, setShowUnlockDialog] = useState(false)
   const [isSettingPin, setIsSettingPin] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [timestampsEnabled, setTimestampsEnabled] = useState(false)
   const [lastTypingTime, setLastTypingTime] = useState(0)
   const [timestampFormat, setTimestampFormat] = useState<"datetime" | "time" | "date">("datetime")
+  const [isOffline, setIsOffline] = useState(false)
 
   // Ensure component is mounted before accessing theme
   useEffect(() => {
     setMounted(true)
+    
+    // Check online status
+    setIsOffline(!navigator.onLine)
+    
+    // Listen for online/offline events
+    const handleOffline = () => setIsOffline(true)
+    const handleOnline = () => setIsOffline(false)
+    
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+    
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
   }, [])
 
   // Load data from localStorage on mount
@@ -50,10 +69,22 @@ export default function OnePageBinder() {
     if (hasVisited) setShowWelcome(false)
   }, [])
 
-  // Auto-save content
+  // Auto-save content with visual indicator
   useEffect(() => {
     if (content !== "") {
-      localStorage.setItem("binder-content", content)
+      setIsSaving(true)
+      const saveTimeout = setTimeout(() => {
+        try {
+          localStorage.setItem("binder-content", content)
+          setIsSaving(false)
+        } catch (error) {
+          console.error("Error saving to localStorage:", error)
+          // Handle storage error (e.g., quota exceeded)
+          setIsSaving(false)
+        }
+      }, 500)
+      
+      return () => clearTimeout(saveTimeout)
     }
   }, [content])
 
@@ -108,7 +139,8 @@ export default function OnePageBinder() {
   const shouldAutoInsertTimestamp = () => {
     const now = Date.now()
     const timeSinceLastTyping = now - lastTypingTime
-    return timestampsEnabled && timeSinceLastTyping > 300000 // 5 minutes
+    // Only insert timestamp after 5 minutes of inactivity and if timestamps are enabled
+    return timestampsEnabled && timeSinceLastTyping > 300000 && lastTypingTime !== 0
   }
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -173,6 +205,16 @@ export default function OnePageBinder() {
       setInputPin("")
       setShowPinDialog(false)
       setIsSettingPin(false)
+    }
+  }
+  
+  const handlePinKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      if (isSettingPin) {
+        handleSetPin()
+      } else {
+        handleUnlock()
+      }
     }
   }
 
@@ -279,10 +321,10 @@ export default function OnePageBinder() {
   if (showWelcome) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-md w-full space-y-8 text-center">
+        <div className="max-w-md w-full space-y-8 text-center animate-in fade-in-50 duration-500">
           {/* Logo */}
           <div className="space-y-4">
-            <div className="w-24 h-24 mx-auto bg-amber-100 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center">
+            <div className="w-24 h-24 mx-auto bg-amber-100 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-700">
               <FileText className="w-12 h-12 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="space-y-2">
@@ -313,7 +355,7 @@ export default function OnePageBinder() {
           <div className="space-y-4">
             <p className="text-foreground font-medium">Welcome to One Page Binder</p>
             <p className="text-muted-foreground">Enter below</p>
-            <Button onClick={handleEnterBinder} className="w-full" size="lg">
+            <Button onClick={handleEnterBinder} className="w-full" size="lg" type="button">
               Enter Your Binder
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
@@ -324,6 +366,7 @@ export default function OnePageBinder() {
             <Button
               variant="ghost"
               size="sm"
+              type="button"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="text-muted-foreground"
             >
@@ -348,14 +391,35 @@ export default function OnePageBinder() {
   if (isLocked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center space-y-4">
-          <Lock className="w-16 h-16 mx-auto text-muted-foreground" />
+        <div className="text-center space-y-4 animate-in fade-in-50 duration-500">
+          <Lock className="w-16 h-16 mx-auto text-muted-foreground animate-in zoom-in-75 duration-700" />
           <h1 className="text-2xl font-bold">One Page Binder</h1>
           <p className="text-muted-foreground">Your binder is locked</p>
           <Button onClick={() => setShowUnlockDialog(true)}>
             <Unlock className="w-4 h-4 mr-2" />
             Unlock
           </Button>
+          <div className="pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="text-muted-foreground"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? (
+                <>
+                  <Sun className="w-4 h-4 mr-2" />
+                  Light Mode
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 mr-2" />
+                  Dark Mode
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -363,6 +427,10 @@ export default function OnePageBinder() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* PWA Components */}
+      <PWAInstallPrompt />
+      <OfflineIndicator />
+      
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -371,36 +439,48 @@ export default function OnePageBinder() {
               <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <h1 className="text-xl font-bold">One Page Binder</h1>
+            {isSaving && (
+              <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>
+            )}
+            {isOffline && (
+              <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 rounded-full flex items-center">
+                <WifiOff className="w-3 h-3 mr-1" />
+                Offline
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 overflow-x-auto sm:overflow-visible">
             <Button
               variant="ghost"
               size="icon"
+              type="button"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               title="Toggle theme"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={handleExport} title="Save to computer">
+            <Button variant="ghost" size="icon" onClick={handleExport} title="Save to computer" type="button">
               <Download className="w-4 h-4" />
             </Button>
 
-            <Button variant="ghost" size="icon" asChild title="Import from file">
+            <Button variant="ghost" size="icon" asChild title="Import from file" type="button">
               <label htmlFor="import-file" className="cursor-pointer">
                 <Upload className="w-4 h-4" />
                 <input id="import-file" type="file" accept=".txt" onChange={handleImport} className="hidden" />
               </label>
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={handlePrint} title="Print">
+            <Button variant="ghost" size="icon" onClick={handlePrint} title="Print" type="button">
               <FileText className="w-4 h-4" />
             </Button>
 
             <Button
               variant={timestampsEnabled ? "default" : "ghost"}
               size="icon"
+              type="button"
               onClick={() => setTimestampsEnabled(!timestampsEnabled)}
               title="Toggle automatic timestamps"
             >
@@ -420,7 +500,7 @@ export default function OnePageBinder() {
               </select>
             )}
 
-            <Button variant="ghost" size="icon" onClick={handleLock} title="Lock binder">
+            <Button variant="ghost" size="icon" onClick={handleLock} title="Lock binder" type="button">
               <Lock className="w-4 h-4" />
             </Button>
           </div>
@@ -439,10 +519,11 @@ export default function OnePageBinder() {
               ? "Start writing... Timestamps will be added automatically after breaks or double-enter. Press Ctrl+T to insert manually."
               : "Start writing... Everything auto-saves locally."
           }
-          className="w-full min-h-[calc(100vh-200px)] p-6 text-base leading-relaxed resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground"
+          className="w-full min-h-[calc(100vh-200px)] p-6 text-base leading-relaxed resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20 rounded-md transition-all"
           style={{
             fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
           }}
+          aria-label="Binder content"
         />
       </main>
 
@@ -461,8 +542,12 @@ export default function OnePageBinder() {
               placeholder="Enter 4-digit PIN"
               value={inputPin}
               onChange={(e) => setInputPin(e.target.value.slice(0, 4))}
+              onKeyDown={handlePinKeyDown}
               maxLength={4}
               className="text-center text-2xl tracking-widest"
+              autoFocus
+              inputMode="numeric"
+              pattern="[0-9]*"
             />
             <Button onClick={handleSetPin} className="w-full" disabled={inputPin.length !== 4}>
               Set PIN
@@ -484,8 +569,12 @@ export default function OnePageBinder() {
               placeholder="Enter PIN"
               value={inputPin}
               onChange={(e) => setInputPin(e.target.value.slice(0, 4))}
+              onKeyDown={handlePinKeyDown}
               maxLength={4}
               className="text-center text-2xl tracking-widest"
+              autoFocus
+              inputMode="numeric"
+              pattern="[0-9]*"
             />
             <Button onClick={handleUnlock} className="w-full" disabled={inputPin.length !== 4}>
               Unlock
