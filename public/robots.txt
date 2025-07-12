@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://your-domain.com/sitemap.xml
+# Sitemap
+Sitemap: https://one-page-binder.vercel.app/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1
