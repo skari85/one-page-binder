@@ -1,119 +1,129 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Offline - One Page Binder</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      text-align: center;
-      background-color: #f9fafb;
-      color: #111827;
-    }
-    
-    .dark {
-      background-color: #111827;
-      color: #f9fafb;
-    }
-    
-    .container {
-      max-width: 500px;
-      padding: 2rem;
-    }
-    
-    .icon {
-      width: 80px;
-      height: 80px;
-      margin-bottom: 1.5rem;
-      background-color: #fef3c7;
-      border-radius: 1rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    
-    .dark .icon {
-      background-color: rgba(217, 119, 6, 0.2);
-    }
-    
-    .icon svg {
-      width: 40px;
-      height: 40px;
-      color: #d97706;
-    }
-    
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-    }
-    
-    p {
-      color: #6b7280;
-      margin-bottom: 1.5rem;
-    }
-    
-    .dark p {
-      color: #9ca3af;
-    }
-    
-    button {
-      background-color: #3b82f6;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    
-    button:hover {
-      background-color: #2563eb;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One Page Binder - Offline</title>
+    <meta name="theme-color" content="#f59e0b">
+    <link rel="icon" href="/favicon.ico">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .retry-btn {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+
+        .retry-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .features {
+            margin: 30px 0;
+            text-align: left;
+        }
+
+        .feature {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="icon">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 3v4a1 1 0 0 0 1 1h4"></path>
-        <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"></path>
-        <line x1="9" y1="9" x2="15" y2="9"></line>
-        <line x1="9" y1="13" x2="15" y2="13"></line>
-        <line x1="9" y1="17" x2="15" y2="17"></line>
-      </svg>
+    <div class="container">
+        <div class="icon pulse">
+            📝
+        </div>
+        
+        <h1>You're Offline</h1>
+        <p>Don't worry! One Page Binder works offline. Your writing is always saved locally on your device.</p>
+        
+        <div class="features">
+            <div class="feature">🔒 Your data is safe and secure locally</div>
+            <div class="feature">⚡ No internet required for writing</div>
+            <div class="feature">✅ Auto-save keeps your work protected</div>
+        </div>
+        
+        <button class="retry-btn" onclick="retryConnection()">
+            Try Again
+        </button>
     </div>
-    <h1>You're offline</h1>
-    <p>One Page Binder is currently offline. Your data is still available, but you'll need an internet connection to access new features.</p>
-    <button onclick="window.location.reload()">Try Again</button>
-  </div>
-  
-  <script>
-    // Check if user prefers dark mode
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.body.classList.add('dark');
-    }
-    
-    // Listen for changes in color scheme preference
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-      if (event.matches) {
-        document.body.classList.add('dark');
-      } else {
-        document.body.classList.remove('dark');
-      }
-    });
-  </script>
+
+    <script>
+        function retryConnection() {
+            if (navigator.onLine) {
+                window.location.href = '/';
+            } else {
+                alert('Still offline. Please check your internet connection.');
+            }
+        }
+
+        // Check connection status
+        window.addEventListener('online', function() {
+            window.location.href = '/';
+        });
+    </script>
 </body>
 </html>

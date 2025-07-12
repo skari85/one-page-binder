@@ -40,6 +40,7 @@ import {
 import { useTheme } from "next-themes"
 import Link from "next/link"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
+import { PWAUpdatePrompt } from "@/components/pwa-update-prompt"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { FileSystemDemo } from "@/components/file-system-demo"
 import { TauriNativeFS } from "@/components/tauri-native-fs"
@@ -657,6 +658,7 @@ export default function OnePageBinder() {
   return (
     <div className="min-h-screen bg-background">
       <PWAInstallPrompt />
+      <PWAUpdatePrompt />
       <OfflineIndicator />
       
       {/* Header */}

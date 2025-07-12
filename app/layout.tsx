@@ -90,11 +90,58 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
         
         {/* Preconnect to external domains */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        
+        {/* Service Worker Registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(
+                    function(registration) {
+                      console.log('Service Worker registration successful with scope: ', registration.scope);
+                      
+                      // Check for updates on page load
+                      registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        if (newWorker) {
+                          newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                              // New content is available, notify the user
+                              const channel = new BroadcastChannel('sw-updates');
+                              channel.postMessage({ 
+                                type: 'UPDATE_AVAILABLE',
+                                sw: newWorker
+                              });
+                              channel.close();
+                            }
+                          });
+                        }
+                      });
+                    },
+                    function(err) {
+                      console.log('Service Worker registration failed: ', err);
+                    }
+                  );
+                  
+                  // Check for updates every hour
+                  setInterval(() => {
+                    navigator.serviceWorker.getRegistration().then(registration => {
+                      if (registration) {
+                        registration.update();
+                      }
+                    });
+                  }, 60 * 60 * 1000);
+                });
+              }
+            `,
+          }}
+        />
         
         {/* Structured Data */}
         <script
