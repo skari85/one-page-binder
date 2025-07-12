@@ -1,14 +1,44 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { Button, type ButtonProps } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Moon, Sun, Download, Upload, Lock, Unlock, FileText, Clock, ArrowRight, WifiOff, HardDrive } from "lucide-react"
+import { 
+  Moon, 
+  Sun, 
+  Download, 
+  Upload, 
+  Lock, 
+  Unlock, 
+  FileText, 
+  Clock, 
+  ArrowRight, 
+  WifiOff, 
+  HardDrive,
+  Share2,
+  Copy,
+  Check,
+  ExternalLink,
+  Sparkles,
+  Zap,
+  Shield,
+  Smartphone,
+  Globe,
+  Users,
+  FileDown,
+  FileUp,
+  Printer,
+  Settings,
+  Home,
+  Info,
+  Shield as ShieldIcon,
+  FileCheck
+} from "lucide-react"
 import { useTheme } from "next-themes"
+import Link from "next/link"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { FileSystemDemo } from "@/components/file-system-demo"
@@ -25,6 +55,9 @@ export default function OnePageBinder() {
   const [isSettingPin, setIsSettingPin] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [showLanding, setShowLanding] = useState(true)
+  const [copied, setCopied] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -71,7 +104,10 @@ export default function OnePageBinder() {
     }
     if (savedTimestamps) setTimestampsEnabled(savedTimestamps === "true")
     if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat as "datetime" | "time" | "date")
-    if (hasVisited) setShowWelcome(false)
+    if (hasVisited) {
+      setShowWelcome(false)
+      setShowLanding(false)
+    }
   }, [])
 
   // Auto-save content with visual indicator
@@ -84,7 +120,6 @@ export default function OnePageBinder() {
           setIsSaving(false)
         } catch (error) {
           console.error("Error saving to localStorage:", error)
-          // Handle storage error (e.g., quota exceeded)
           setIsSaving(false)
         }
       }, 500)
@@ -133,7 +168,6 @@ export default function OnePageBinder() {
       const newContent = content.slice(0, start) + timestamp + content.slice(end)
       setContent(newContent)
 
-      // Set cursor position after timestamp
       setTimeout(() => {
         textarea.selectionStart = textarea.selectionEnd = start + timestamp.length
         textarea.focus()
@@ -144,7 +178,6 @@ export default function OnePageBinder() {
   const shouldAutoInsertTimestamp = () => {
     const now = Date.now()
     const timeSinceLastTyping = now - lastTypingTime
-    // Only insert timestamp after 5 minutes of inactivity and if timestamps are enabled
     return timestampsEnabled && timeSinceLastTyping > 300000 && lastTypingTime !== 0
   }
 
@@ -152,7 +185,6 @@ export default function OnePageBinder() {
     const newContent = e.target.value
     const now = Date.now()
 
-    // Check if we should auto-insert timestamp
     if (shouldAutoInsertTimestamp() && newContent.length > content.length) {
       const timestamp = `\n[${formatTimestamp(timestampFormat)}] `
       const textarea = textareaRef.current
@@ -175,13 +207,11 @@ export default function OnePageBinder() {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Insert timestamp on Ctrl/Cmd + T
     if ((e.ctrlKey || e.metaKey) && e.key === "t") {
       e.preventDefault()
       insertTimestamp()
     }
 
-    // Auto-insert timestamp on double Enter
     if (e.key === "Enter" && timestampsEnabled) {
       const textarea = textareaRef.current
       if (textarea) {
@@ -200,6 +230,7 @@ export default function OnePageBinder() {
 
   const handleEnterBinder = () => {
     setShowWelcome(false)
+    setShowLanding(false)
     localStorage.setItem("binder-visited", "true")
   }
 
@@ -242,31 +273,83 @@ export default function OnePageBinder() {
     }
   }
 
-  const handleExport = () => {
+  const handleExport = async (format: 'txt' | 'docx' = 'txt') => {
     const timestamp = new Date().toISOString().split("T")[0]
-    const filename = `one-page-binder-${timestamp}.txt`
-
-    try {
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      a.style.display = "none"
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error("Export failed:", error)
-      // Fallback method
-      const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(content)
-      const downloadAnchorNode = document.createElement("a")
-      downloadAnchorNode.setAttribute("href", dataStr)
-      downloadAnchorNode.setAttribute("download", filename)
-      document.body.appendChild(downloadAnchorNode)
-      downloadAnchorNode.click()
-      downloadAnchorNode.remove()
+    
+    if (format === 'txt') {
+      const filename = `one-page-binder-${timestamp}.txt`
+      try {
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = filename
+        a.style.display = "none"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (error) {
+        console.error("Export failed:", error)
+        const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(content)
+        const downloadAnchorNode = document.createElement("a")
+        downloadAnchorNode.setAttribute("href", dataStr)
+        downloadAnchorNode.setAttribute("download", filename)
+        document.body.appendChild(downloadAnchorNode)
+        downloadAnchorNode.click()
+        downloadAnchorNode.remove()
+      }
+    } else if (format === 'docx') {
+      try {
+        // Dynamic import to avoid SSR issues
+        const { exportToDocx } = await import('@/lib/docx-export')
+        const filename = `one-page-binder-${timestamp}.docx`
+        await exportToDocx(content, filename)
+      } catch (error) {
+        console.error("DOCX export failed:", error)
+        // Fallback to HTML export
+        const filename = `one-page-binder-${timestamp}.html`
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>One Page Binder</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                max-width: 8.5in;
+                margin: 0 auto;
+                padding: 1in;
+                white-space: pre-wrap;
+              }
+              h1 {
+                text-align: center;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+                margin-bottom: 30px;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>One Page Binder</h1>
+            <div>${content.replace(/\n/g, "<br>")}</div>
+          </body>
+          </html>
+        `
+        
+        const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = filename
+        a.style.display = "none"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
     }
   }
 
@@ -318,8 +401,153 @@ export default function OnePageBinder() {
     }
   }
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'One Page Binder',
+          text: 'Check out this amazing writing tool!',
+          url: window.location.href
+        })
+      } catch (error) {
+        console.error('Error sharing:', error)
+      }
+    } else {
+      setShowShareDialog(true)
+    }
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy:', error)
+    }
+  }
+
   if (!mounted) {
     return null
+  }
+
+  // Landing Page
+  if (showLanding) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+        {/* Navigation */}
+        <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold">One Page Binder</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="text-muted-foreground"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleShare}>
+              <Share2 className="w-4 h-4 mr-2" />
+              Share
+            </Button>
+          </div>
+        </nav>
+
+        {/* Hero Section */}
+        <div className="container mx-auto px-4 py-20 text-center">
+          <div className="max-w-4xl mx-auto space-y-8">
+            {/* Animated Badge */}
+            <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 px-4 py-2 rounded-full text-sm font-medium text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-500">
+              <Sparkles className="w-4 h-4" />
+              <span>Your digital writing companion</span>
+            </div>
+
+            {/* Main Heading */}
+            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent animate-in fade-in-50 duration-700">
+              Write. Save.
+              <br />
+              <span className="text-transparent bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text">
+                Never Lose.
+              </span>
+            </h1>
+
+            {/* Subtitle */}
+            <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto animate-in fade-in-50 duration-1000">
+              A minimalist writing tool that saves everything locally. 
+              No cloud, no tracking, just pure writing.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 animate-in fade-in-50 duration-1200">
+              <Button 
+                size="lg" 
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-3 text-lg"
+                onClick={handleEnterBinder}
+              >
+                Start Writing
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+              <Button variant="outline" size="lg" className="px-8 py-3 text-lg">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Learn More
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="container mx-auto px-4 py-20">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-700">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl flex items-center justify-center">
+                <Shield className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-xl font-semibold">Privacy First</h3>
+              <p className="text-muted-foreground">Everything saves locally on your device. No cloud, no tracking, complete privacy.</p>
+            </div>
+
+            <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-1000">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl flex items-center justify-center">
+                <Zap className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-xl font-semibold">Lightning Fast</h3>
+              <p className="text-muted-foreground">Instant auto-save, zero distractions, and seamless offline experience.</p>
+            </div>
+
+            <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-1300">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl flex items-center justify-center">
+                <Smartphone className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-xl font-semibold">Works Everywhere</h3>
+              <p className="text-muted-foreground">Desktop, tablet, or phone - your writing follows you everywhere.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <footer className="container mx-auto px-4 py-12 border-t border-border/50">
+          <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded flex items-center justify-center">
+                <FileText className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-semibold">One Page Binder</span>
+            </div>
+            <div className="flex items-center space-x-6 text-sm text-muted-foreground">
+              <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+            </div>
+          </div>
+        </footer>
+      </div>
+    )
   }
 
   // Welcome Screen
@@ -327,7 +555,6 @@ export default function OnePageBinder() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full space-y-8 text-center animate-in fade-in-50 duration-500">
-          {/* Logo */}
           <div className="space-y-4">
             <div className="w-24 h-24 mx-auto bg-amber-100 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-700">
               <FileText className="w-12 h-12 text-amber-600 dark:text-amber-400" />
@@ -340,7 +567,6 @@ export default function OnePageBinder() {
             </div>
           </div>
 
-          {/* Features */}
           <div className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-center justify-center space-x-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -356,7 +582,6 @@ export default function OnePageBinder() {
             </div>
           </div>
 
-          {/* Enter Button */}
           <div className="space-y-4">
             <p className="text-foreground font-medium">Welcome to One Page Binder</p>
             <p className="text-muted-foreground">Enter below</p>
@@ -366,7 +591,6 @@ export default function OnePageBinder() {
             </Button>
           </div>
 
-          {/* Theme Toggle */}
           <div className="pt-4">
             <Button
               variant="ghost"
@@ -432,7 +656,6 @@ export default function OnePageBinder() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* PWA Components */}
       <PWAInstallPrompt />
       <OfflineIndicator />
       
@@ -467,6 +690,7 @@ export default function OnePageBinder() {
                 <HardDrive className="w-4 h-4" />
               </Button>
             )}
+            
             <Button
               variant="ghost"
               size="icon"
@@ -478,19 +702,27 @@ export default function OnePageBinder() {
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={handleExport} title="Save to computer" type="button">
-              <Download className="w-4 h-4" />
+            <Button variant="ghost" size="icon" onClick={handleShare} title="Share app" type="button">
+              <Share2 className="w-4 h-4" />
+            </Button>
+
+            <Button variant="ghost" size="icon" onClick={() => handleExport('txt')} title="Save as TXT" type="button">
+              <FileDown className="w-4 h-4" />
+            </Button>
+
+            <Button variant="ghost" size="icon" onClick={() => handleExport('docx')} title="Save as DOCX" type="button">
+              <FileCheck className="w-4 h-4" />
             </Button>
 
             <Button variant="ghost" size="icon" asChild title="Import from file" type="button">
               <label htmlFor="import-file" className="cursor-pointer">
-                <Upload className="w-4 h-4" />
+                <FileUp className="w-4 h-4" />
                 <input id="import-file" type="file" accept=".txt" onChange={handleImport} className="hidden" />
               </label>
             </Button>
 
             <Button variant="ghost" size="icon" onClick={handlePrint} title="Print" type="button">
-              <FileText className="w-4 h-4" />
+              <Printer className="w-4 h-4" />
             </Button>
 
             <Button
@@ -611,6 +843,44 @@ export default function OnePageBinder() {
             <Button onClick={handleUnlock} className="w-full" disabled={inputPin.length !== 4}>
               Unlock
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share One Page Binder</DialogTitle>
+            <DialogDescription>
+              Share this amazing writing tool with others
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
+              <input
+                type="text"
+                value={window.location.href}
+                readOnly
+                className="flex-1 bg-transparent border-none outline-none text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyToClipboard}
+                className="shrink-0"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <div className="flex space-x-2">
+              <Button onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out One Page Binder - an amazing writing tool!')}&url=${encodeURIComponent(window.location.href)}`, '_blank')} className="flex-1">
+                Share on Twitter
+              </Button>
+              <Button onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank')} className="flex-1">
+                Share on Facebook
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
