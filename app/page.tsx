@@ -2,21 +2,19 @@
 
 import type React from "react"
 import { useState, useEffect, useRef } from "react"
-import { Button, type ButtonProps } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Moon, 
-  Sun, 
-  Download, 
-  Upload, 
-  Lock, 
-  Unlock, 
-  FileText, 
-  Clock, 
-  ArrowRight, 
-  WifiOff, 
+import {
+  Moon,
+  Sun,
+  Lock,
+  Unlock,
+  FileText,
+  Clock,
+  ArrowRight,
+  WifiOff,
   HardDrive,
   Share2,
   Copy,
@@ -26,16 +24,10 @@ import {
   Zap,
   Shield,
   Smartphone,
-  Globe,
-  Users,
   FileDown,
   FileUp,
   Printer,
-  Settings,
-  Home,
-  Info,
-  Shield as ShieldIcon,
-  FileCheck
+  FileCheck,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import Link from "next/link"
@@ -71,20 +63,20 @@ export default function OnePageBinder() {
   // Ensure component is mounted before accessing theme
   useEffect(() => {
     setMounted(true)
-    
+
     // Check online status
     setIsOffline(!navigator.onLine)
-    
+
     // Listen for online/offline events
     const handleOffline = () => setIsOffline(true)
     const handleOnline = () => setIsOffline(false)
-    
-    window.addEventListener('offline', handleOffline)
-    window.addEventListener('online', handleOnline)
-    
+
+    window.addEventListener("offline", handleOffline)
+    window.addEventListener("online", handleOnline)
+
     return () => {
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online', handleOnline)
+      window.removeEventListener("offline", handleOffline)
+      window.removeEventListener("online", handleOnline)
     }
   }, [])
 
@@ -124,7 +116,7 @@ export default function OnePageBinder() {
           setIsSaving(false)
         }
       }, 500)
-      
+
       return () => clearTimeout(saveTimeout)
     }
   }, [content])
@@ -244,7 +236,7 @@ export default function OnePageBinder() {
       setIsSettingPin(false)
     }
   }
-  
+
   const handlePinKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       if (isSettingPin) {
@@ -274,10 +266,10 @@ export default function OnePageBinder() {
     }
   }
 
-  const handleExport = async (format: 'txt' | 'docx' = 'txt') => {
+  const handleExport = async (format: "txt" | "docx" = "txt") => {
     const timestamp = new Date().toISOString().split("T")[0]
-    
-    if (format === 'txt') {
+
+    if (format === "txt") {
       const filename = `one-page-binder-${timestamp}.txt`
       try {
         const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
@@ -300,10 +292,10 @@ export default function OnePageBinder() {
         downloadAnchorNode.click()
         downloadAnchorNode.remove()
       }
-    } else if (format === 'docx') {
+    } else if (format === "docx") {
       try {
         // Dynamic import to avoid SSR issues
-        const { exportToDocx } = await import('@/lib/docx-export')
+        const { exportToDocx } = await import("@/lib/docx-export")
         const filename = `one-page-binder-${timestamp}.docx`
         await exportToDocx(content, filename)
       } catch (error) {
@@ -339,7 +331,7 @@ export default function OnePageBinder() {
           </body>
           </html>
         `
-        
+
         const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
@@ -403,17 +395,21 @@ export default function OnePageBinder() {
   }
 
   const handleShare = async () => {
-    if (navigator.share) {
+    // Check if Web Share API is available and allowed
+    if (navigator.share && window.isSecureContext) {
       try {
         await navigator.share({
-          title: 'One Page Binder',
-          text: 'Check out this amazing writing tool!',
-          url: window.location.href
+          title: "One Page Binder",
+          text: "Check out this amazing writing tool!",
+          url: window.location.href,
         })
       } catch (error) {
-        console.error('Error sharing:', error)
+        // User cancelled or sharing failed, fall back to share dialog
+        console.log("Share cancelled or failed:", error)
+        setShowShareDialog(true)
       }
     } else {
+      // Web Share API not available, use fallback dialog
       setShowShareDialog(true)
     }
   }
@@ -424,7 +420,7 @@ export default function OnePageBinder() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error('Failed to copy:', error)
+      console.error("Failed to copy:", error)
     }
   }
 
@@ -480,21 +476,20 @@ export default function OnePageBinder() {
 
             {/* Subtitle */}
             <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto animate-in fade-in-50 duration-1000">
-              A minimalist writing tool that saves everything locally. 
-              No cloud, no tracking, just pure writing.
+              A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing.
             </p>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 animate-in fade-in-50 duration-1200">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-3 text-lg"
                 onClick={handleEnterBinder}
               >
                 Start Writing
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
-              <Button variant="outline" size="lg" className="px-8 py-3 text-lg">
+              <Button variant="outline" size="lg" className="px-8 py-3 text-lg bg-transparent">
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Learn More
               </Button>
@@ -510,7 +505,9 @@ export default function OnePageBinder() {
                 <Shield className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
               <h3 className="text-xl font-semibold">Privacy First</h3>
-              <p className="text-muted-foreground">Everything saves locally on your device. No cloud, no tracking, complete privacy.</p>
+              <p className="text-muted-foreground">
+                Everything saves locally on your device. No cloud, no tracking, complete privacy.
+              </p>
             </div>
 
             <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-1000">
@@ -518,7 +515,9 @@ export default function OnePageBinder() {
                 <Zap className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
               <h3 className="text-xl font-semibold">Lightning Fast</h3>
-              <p className="text-muted-foreground">Instant auto-save, zero distractions, and seamless offline experience.</p>
+              <p className="text-muted-foreground">
+                Instant auto-save, zero distractions, and seamless offline experience.
+              </p>
             </div>
 
             <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-1300">
@@ -541,9 +540,15 @@ export default function OnePageBinder() {
               <span className="font-semibold">One Page Binder</span>
             </div>
             <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-              <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
-              <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
-              <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+              <Link href="/about" className="hover:text-foreground transition-colors">
+                About
+              </Link>
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy
+              </Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">
+                Terms
+              </Link>
             </div>
           </div>
         </footer>
@@ -660,7 +665,7 @@ export default function OnePageBinder() {
       <PWAInstallPrompt />
       <PWAUpdatePrompt />
       <OfflineIndicator />
-      
+
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -669,9 +674,7 @@ export default function OnePageBinder() {
               <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <h1 className="text-xl font-bold">One Page Binder</h1>
-            {isSaving && (
-              <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>
-            )}
+            {isSaving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
             {isOffline && (
               <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 rounded-full flex items-center">
                 <WifiOff className="w-3 h-3 mr-1" />
@@ -692,7 +695,7 @@ export default function OnePageBinder() {
                 <HardDrive className="w-4 h-4" />
               </Button>
             )}
-            
+
             <Button
               variant="ghost"
               size="icon"
@@ -708,11 +711,11 @@ export default function OnePageBinder() {
               <Share2 className="w-4 h-4" />
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={() => handleExport('txt')} title="Save as TXT" type="button">
+            <Button variant="ghost" size="icon" onClick={() => handleExport("txt")} title="Save as TXT" type="button">
               <FileDown className="w-4 h-4" />
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={() => handleExport('docx')} title="Save as DOCX" type="button">
+            <Button variant="ghost" size="icon" onClick={() => handleExport("docx")} title="Save as DOCX" type="button">
               <FileCheck className="w-4 h-4" />
             </Button>
 
@@ -764,7 +767,9 @@ export default function OnePageBinder() {
             <Tabs defaultValue="cross-platform" className="w-full max-w-3xl mx-auto">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="cross-platform">Cross-Platform API</TabsTrigger>
-                <TabsTrigger value="native" disabled={!isTauri()}>Native Tauri API</TabsTrigger>
+                <TabsTrigger value="native" disabled={!isTauri()}>
+                  Native Tauri API
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="cross-platform" className="mt-4">
                 <FileSystemDemo />
@@ -854,9 +859,7 @@ export default function OnePageBinder() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Share One Page Binder</DialogTitle>
-            <DialogDescription>
-              Share this amazing writing tool with others
-            </DialogDescription>
+            <DialogDescription>Share this amazing writing tool with others</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
@@ -866,20 +869,31 @@ export default function OnePageBinder() {
                 readOnly
                 className="flex-1 bg-transparent border-none outline-none text-sm"
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={copyToClipboard}
-                className="shrink-0"
-              >
+              <Button variant="outline" size="sm" onClick={copyToClipboard} className="shrink-0 bg-transparent">
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
             <div className="flex space-x-2">
-              <Button onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out One Page Binder - an amazing writing tool!')}&url=${encodeURIComponent(window.location.href)}`, '_blank')} className="flex-1">
+              <Button
+                onClick={() =>
+                  window.open(
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent("Check out One Page Binder - an amazing writing tool!")}&url=${encodeURIComponent(window.location.href)}`,
+                    "_blank",
+                  )
+                }
+                className="flex-1"
+              >
                 Share on Twitter
               </Button>
-              <Button onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank')} className="flex-1">
+              <Button
+                onClick={() =>
+                  window.open(
+                    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`,
+                    "_blank",
+                  )
+                }
+                className="flex-1"
+              >
                 Share on Facebook
               </Button>
             </div>
