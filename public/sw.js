@@ -1,11 +1,9 @@
 // Service Worker for One Page Binder PWA
-const CACHE_NAME = 'one-page-binder-v2';
-const STATIC_CACHE = 'static-v2';
-const DYNAMIC_CACHE = 'dynamic-v2';
 
-// Assets to cache immediately
-const STATIC_ASSETS = [
+const CACHE_NAME = 'one-page-binder-v1';
+const urlsToCache = [
   '/',
+  '/index.html',
   '/manifest.json',
   '/offline.html',
   '/icons/icon-512x512.png',
@@ -14,231 +12,90 @@ const STATIC_ASSETS = [
   '/apple-icon.png'
 ];
 
-// Install event - cache static assets
+// Install event - cache assets
 self.addEventListener('install', event => {
-  console.log('Service Worker installing...');
   event.waitUntil(
-    Promise.all([
-      caches.open(STATIC_CACHE).then(cache => {
-        console.log('Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
-      }),
-      caches.open(DYNAMIC_CACHE) // Initialize dynamic cache
-    ]).then(() => {
-      console.log('Service Worker installed successfully');
-      self.skipWaiting(); // Force activation
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('Opened cache');
+        return cache.addAll(urlsToCache);
+      })
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('Service Worker activating...');
-  const cacheWhitelist = [STATIC_CACHE, DYNAMIC_CACHE];
-  
+  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
-    Promise.all([
-      // Clean up old caches
-      caches.keys().then(cacheNames => {
-        return Promise.all(
-          cacheNames.map(cacheName => {
-            if (!cacheWhitelist.includes(cacheName)) {
-              console.log('Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      }),
-      // Take control of all clients
-      self.clients.claim()
-    ]).then(() => {
-      console.log('Service Worker activated successfully');
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
     })
   );
 });
 
-// Fetch event with improved caching strategy
+// Fetch event - serve from cache, network, or fallback to offline page
 self.addEventListener('fetch', event => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
-
-  // Skip chrome-extension and other non-http(s) requests
-  if (!url.protocol.startsWith('http')) {
-    return;
-  }
-
   event.respondWith(
-    handleFetch(request)
+    caches.match(event.request)
+      .then(response => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+
+        // Clone the request because it's a one-time use stream
+        const fetchRequest = event.request.clone();
+
+        return fetch(fetchRequest)
+          .then(response => {
+            // Check if we received a valid response
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // Clone the response
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          })
+          .catch(() => {
+            // Network failed, serve the offline page for navigation requests
+            if (event.request.mode === 'navigate') {
+              return caches.match('/offline.html');
+            }
+            
+            // For other requests like images or scripts that fail,
+            // we could return a placeholder or just let the error happen
+            return new Response('Network error happened', {
+              status: 408,
+              headers: { 'Content-Type': 'text/plain' }
+            });
+          });
+      })
   );
 });
 
-async function handleFetch(request) {
-  const url = new URL(request.url);
-  
-  try {
-    // Strategy 1: Cache First for static assets
-    if (STATIC_ASSETS.some(asset => url.pathname === asset) || 
-        url.pathname.startsWith('/icons/') ||
-        url.pathname.startsWith('/_next/static/')) {
-      
-      const cachedResponse = await caches.match(request);
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      
-      const networkResponse = await fetch(request);
-      if (networkResponse.ok) {
-        const cache = await caches.open(STATIC_CACHE);
-        cache.put(request, networkResponse.clone());
-      }
-      return networkResponse;
-    }
-    
-    // Strategy 2: Network First for HTML pages
-    if (request.mode === 'navigate' || 
-        (request.destination === 'document' && url.pathname === '/')) {
-      
-      try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-          const cache = await caches.open(DYNAMIC_CACHE);
-          cache.put(request, networkResponse.clone());
-        }
-        return networkResponse;
-      } catch (error) {
-        console.log('Network failed, trying cache for:', request.url);
-        const cachedResponse = await caches.match(request);
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        // Return offline page as fallback
-        return caches.match('/offline.html');
-      }
-    }
-    
-    // Strategy 3: Stale While Revalidate for other resources
-    const cachedResponse = await caches.match(request);
-    const networkPromise = fetch(request).then(response => {
-      if (response.ok) {
-        const cache = caches.open(DYNAMIC_CACHE);
-        cache.then(c => c.put(request, response.clone()));
-      }
-      return response;
-    }).catch(() => null);
-    
-    return cachedResponse || await networkPromise || new Response('Offline', {
-      status: 503,
-      statusText: 'Service Unavailable',
-      headers: { 'Content-Type': 'text/plain' }
-    });
-    
-  } catch (error) {
-    console.error('Fetch handler error:', error);
-    
-    // Fallback for navigation requests
-    if (request.mode === 'navigate') {
-      return caches.match('/offline.html');
-    }
-    
-    return new Response('Network error', {
-      status: 503,
-      statusText: 'Service Unavailable',
-      headers: { 'Content-Type': 'text/plain' }
-    });
-  }
-}
-
-// Handle messages from the client
-self.addEventListener('message', event => {
-  const { data } = event;
-  
-  if (data && data.type === 'SKIP_WAITING') {
+// This allows the service worker to update itself
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
-    return;
-  }
-  
-  if (data && data.type === 'GET_VERSION') {
-    event.ports[0].postMessage({ version: CACHE_NAME });
-    return;
   }
 });
 
-// Background sync for offline actions
-self.addEventListener('sync', event => {
-  if (event.tag === 'background-sync') {
-    event.waitUntil(doBackgroundSync());
-  }
-});
-
-async function doBackgroundSync() {
-  // Handle any background sync tasks here
-  console.log('Background sync triggered');
-}
-
-// Push notification handling
-self.addEventListener('push', event => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: '/icons/icon-512x512.png',
-      badge: '/icons/maskable-icon.png',
-      vibrate: [100, 50, 100],
-      data: {
-        dateOfArrival: Date.now(),
-        primaryKey: data.primaryKey
-      },
-      actions: [
-        {
-          action: 'explore',
-          title: 'Open App',
-          icon: '/icons/icon-512x512.png'
-        },
-        {
-          action: 'close',
-          title: 'Close',
-          icon: '/icons/icon-512x512.png'
-        }
-      ]
-    };
-    
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
-  }
-});
-
-// Notification click handling
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  
-  if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow('/')
-    );
-  }
-});
-
-// Periodic background sync (if supported)
-self.addEventListener('periodicsync', event => {
-  if (event.tag === 'content-sync') {
-    event.waitUntil(syncContent());
-  }
-});
-
-async function syncContent() {
-  // Sync content in the background
-  console.log('Periodic sync triggered');
-}
-
-// Update notification
-self.addEventListener('install', event => {
-  // Notify clients about the update
+// Notify clients about updates
+self.addEventListener('install', (event) => {
+  // When a new service worker is installed, notify clients
   const channel = new BroadcastChannel('sw-updates');
   channel.postMessage({
     type: 'UPDATE_AVAILABLE',
