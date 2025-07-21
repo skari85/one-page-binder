@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import {
   Moon,
   Sun,
@@ -28,17 +28,30 @@ import {
   FileUp,
   Printer,
   FileCheck,
+  HelpCircle,
+  Home,
+  BookOpen,
+  FileText as SinglePage,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Minus,
+  RotateCcw,
+  Settings,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import Link from "next/link"
+import Image from "next/image"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import { PWAUpdatePrompt } from "@/components/pwa-update-prompt"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { FileSystemDemo } from "@/components/file-system-demo"
 import { TauriNativeFS } from "@/components/tauri-native-fs"
 import { isTauri } from "@/lib/tauri-api"
+import { translations, getTranslation, type Language } from "@/lib/translations"
+import { Globe } from "lucide-react"
 
-export default function OnePageBinder() {
+export default function Qi() {
   const [content, setContent] = useState("")
   const [isLocked, setIsLocked] = useState(false)
   const [pin, setPin] = useState("")
@@ -51,6 +64,12 @@ export default function OnePageBinder() {
   const [showLanding, setShowLanding] = useState(true)
   const [copied, setCopied] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
+  const [showShortcutsDialog, setShowShortcutsDialog] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportFormat, setExportFormat] = useState<"txt" | "docx" | "pdf" | "epub">("txt")
+  const [exportRange, setExportRange] = useState<"all" | "current" | "range">("all")
+  const [exportStartPage, setExportStartPage] = useState(1)
+  const [exportEndPage, setExportEndPage] = useState(1)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -59,6 +78,57 @@ export default function OnePageBinder() {
   const [timestampFormat, setTimestampFormat] = useState<"datetime" | "time" | "date">("datetime")
   const [isOffline, setIsOffline] = useState(false)
   const [showNativeFileSystem, setShowNativeFileSystem] = useState(false)
+  
+  // Language state
+  const [language, setLanguage] = useState<Language>('en')
+
+  // Page-based writing system state
+  const [viewMode, setViewMode] = useState<"single" | "book">("single")
+  const [pageSize, setPageSize] = useState<"A4" | "Letter" | "A5">("A4")
+  const [pages, setPages] = useState<Array<{ id: string; content: string; wordCount: number }>>([
+    { id: "1", content: "", wordCount: 0 }
+  ])
+  const [currentPage, setCurrentPage] = useState(0)
+  const [currentBookPage, setCurrentBookPage] = useState(0) // For book view (shows pages currentBookPage and currentBookPage+1)
+  const pageRefs = useRef<(HTMLTextAreaElement | null)[]>([])
+
+  // Page size configurations
+  const pageSizes = {
+    A4: {
+      width: "210mm",
+      height: "297mm",
+      wordsPerPage: 325,
+      linesPerPage: 30,
+      className: "w-[800px] h-[1131px]" // A4 ratio scaled up for better screen viewing
+    },
+    Letter: {
+      width: "8.5in",
+      height: "11in", 
+      wordsPerPage: 300,
+      linesPerPage: 28,
+      className: "w-[800px] h-[1035px]" // Letter ratio scaled up for better screen viewing
+    },
+    A5: {
+      width: "148mm",
+      height: "210mm",
+      wordsPerPage: 200,
+      linesPerPage: 22,
+      className: "w-[600px] h-[849px]" // A5 ratio scaled up for better screen viewing
+    }
+  }
+
+  // Helper functions for page management
+  const countWords = (text: string) => {
+    return text.trim().split(/\s+/).filter(word => word.length > 0).length
+  }
+
+  const getCurrentPageSize = () => pageSizes[pageSize]
+
+  const shouldCreateNewPage = (content: string) => {
+    const wordCount = countWords(content)
+    const currentPageSize = getCurrentPageSize()
+    return wordCount >= currentPageSize.wordsPerPage
+  }
 
   // Ensure component is mounted before accessing theme
   useEffect(() => {
@@ -82,12 +152,13 @@ export default function OnePageBinder() {
 
   // Load data from localStorage on mount
   useEffect(() => {
-    const savedContent = localStorage.getItem("binder-content")
-    const savedPin = localStorage.getItem("binder-pin")
-    const savedLockState = localStorage.getItem("binder-locked")
-    const savedTimestamps = localStorage.getItem("binder-timestamps")
-    const savedTimestampFormat = localStorage.getItem("binder-timestamp-format")
-    const hasVisited = localStorage.getItem("binder-visited")
+    const savedContent = localStorage.getItem("qi-content")
+    const savedPin = localStorage.getItem("qi-pin")
+    const savedLockState = localStorage.getItem("qi-locked")
+    const savedTimestamps = localStorage.getItem("qi-timestamps")
+    const savedTimestampFormat = localStorage.getItem("qi-timestamp-format")
+    const savedLanguage = localStorage.getItem("qi-language")
+    const hasVisited = localStorage.getItem("qi-visited")
 
     if (savedContent) setContent(savedContent)
     if (savedPin) setPin(savedPin)
@@ -97,6 +168,7 @@ export default function OnePageBinder() {
     }
     if (savedTimestamps) setTimestampsEnabled(savedTimestamps === "true")
     if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat as "datetime" | "time" | "date")
+    if (savedLanguage) setLanguage(savedLanguage as Language)
     if (hasVisited) {
       setShowWelcome(false)
       setShowLanding(false)
@@ -109,7 +181,7 @@ export default function OnePageBinder() {
       setIsSaving(true)
       const saveTimeout = setTimeout(() => {
         try {
-          localStorage.setItem("binder-content", content)
+          localStorage.setItem("qi-content", content)
           setIsSaving(false)
         } catch (error) {
           console.error("Error saving to localStorage:", error)
@@ -123,12 +195,17 @@ export default function OnePageBinder() {
 
   // Save timestamp preferences
   useEffect(() => {
-    localStorage.setItem("binder-timestamps", timestampsEnabled.toString())
+    localStorage.setItem("qi-timestamps", timestampsEnabled.toString())
   }, [timestampsEnabled])
 
   useEffect(() => {
-    localStorage.setItem("binder-timestamp-format", timestampFormat)
+    localStorage.setItem("qi-timestamp-format", timestampFormat)
   }, [timestampFormat])
+
+  // Save language preference
+  useEffect(() => {
+    localStorage.setItem("qi-language", language)
+  }, [language])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -200,11 +277,33 @@ export default function OnePageBinder() {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Timestamp shortcut
     if ((e.ctrlKey || e.metaKey) && e.key === "t") {
       e.preventDefault()
       insertTimestamp()
     }
 
+    // Save shortcut (Ctrl/Cmd + S)
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault()
+      // Content is already auto-saved, just show a brief indicator
+      setIsSaving(true)
+      setTimeout(() => setIsSaving(false), 500)
+    }
+
+    // Export shortcut (Ctrl/Cmd + E)
+    if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+      e.preventDefault()
+      handleExport("txt")
+    }
+
+    // Lock shortcut (Ctrl/Cmd + L)
+    if ((e.ctrlKey || e.metaKey) && e.key === "l") {
+      e.preventDefault()
+      handleLock()
+    }
+
+    // Auto-timestamp on double enter
     if (e.key === "Enter" && timestampsEnabled) {
       const textarea = textareaRef.current
       if (textarea) {
@@ -221,16 +320,21 @@ export default function OnePageBinder() {
     }
   }
 
-  const handleEnterBinder = () => {
+  const handleEnterQi = () => {
     setShowWelcome(false)
     setShowLanding(false)
-    localStorage.setItem("binder-visited", "true")
+    localStorage.setItem("qi-visited", "true")
+  }
+
+  const handleGoHome = () => {
+    setShowLanding(true)
+    setShowWelcome(false)
   }
 
   const handleSetPin = () => {
     if (inputPin.length === 4 && /^\d{4}$/.test(inputPin)) {
       setPin(inputPin)
-      localStorage.setItem("binder-pin", inputPin)
+      localStorage.setItem("qi-pin", inputPin)
       setInputPin("")
       setShowPinDialog(false)
       setIsSettingPin(false)
@@ -250,7 +354,7 @@ export default function OnePageBinder() {
   const handleUnlock = () => {
     if (inputPin === pin) {
       setIsLocked(false)
-      localStorage.setItem("binder-locked", "false")
+      localStorage.setItem("qi-locked", "false")
       setInputPin("")
       setShowUnlockDialog(false)
     }
@@ -259,20 +363,44 @@ export default function OnePageBinder() {
   const handleLock = () => {
     if (pin) {
       setIsLocked(true)
-      localStorage.setItem("binder-locked", "true")
+      localStorage.setItem("qi-locked", "true")
     } else {
       setIsSettingPin(true)
       setShowPinDialog(true)
     }
   }
 
-  const handleExport = async (format: "txt" | "docx" = "txt") => {
+  const handleExport = async (format: "txt" | "docx" | "pdf" | "epub" = "txt") => {
     const timestamp = new Date().toISOString().split("T")[0]
+    
+    // Get content based on export range
+    let exportContent = ""
+    let exportPages: typeof pages = []
+    
+    if (exportRange === "all") {
+      exportPages = pages
+      exportContent = pages.map(page => page.content).join("\n\n--- Page Break ---\n\n")
+    } else if (exportRange === "current") {
+      exportPages = [pages[currentPage]]
+      exportContent = pages[currentPage]?.content || ""
+    } else if (exportRange === "range") {
+      const startIdx = Math.max(0, exportStartPage - 1)
+      const endIdx = Math.min(pages.length - 1, exportEndPage - 1)
+      exportPages = pages.slice(startIdx, endIdx + 1)
+      exportContent = exportPages.map((page, idx) => 
+        `--- Page ${startIdx + idx + 1} ---\n\n${page.content}`
+      ).join("\n\n--- Page Break ---\n\n")
+    }
+
+    const totalWords = exportPages.reduce((sum, page) => sum + page.wordCount, 0)
+    const bookTitle = exportContent.split('\n')[0]?.replace(/[^\w\s]/gi, '').trim().slice(0, 50) || "Qi Document"
 
     if (format === "txt") {
-      const filename = `one-page-binder-${timestamp}.txt`
+      const filename = `${bookTitle.replace(/\s+/g, '-').toLowerCase()}-${timestamp}.txt`
+      const txtContent = `${bookTitle}\n${'='.repeat(bookTitle.length)}\n\nExported from Qi - A quiet place to write\nDate: ${new Date().toLocaleDateString()}\nPages: ${exportPages.length}\nTotal Words: ${totalWords}\n\n${'-'.repeat(50)}\n\n${exportContent}`
+      
       try {
-        const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
+        const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8" })
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
@@ -284,7 +412,7 @@ export default function OnePageBinder() {
         URL.revokeObjectURL(url)
       } catch (error) {
         console.error("Export failed:", error)
-        const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(content)
+        const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(txtContent)
         const downloadAnchorNode = document.createElement("a")
         downloadAnchorNode.setAttribute("href", dataStr)
         downloadAnchorNode.setAttribute("download", filename)
@@ -296,19 +424,23 @@ export default function OnePageBinder() {
       try {
         // Dynamic import to avoid SSR issues
         const { exportToDocx } = await import("@/lib/docx-export")
-        const filename = `one-page-binder-${timestamp}.docx`
-        await exportToDocx(content, filename)
+        const filename = `${bookTitle.replace(/\s+/g, '-').toLowerCase()}-${timestamp}.docx`
+        await exportToDocx(exportContent, filename)
       } catch (error) {
         console.error("DOCX export failed:", error)
         // Fallback to HTML export
-        const filename = `one-page-binder-${timestamp}.html`
+        const filename = `${bookTitle.replace(/\s+/g, '-').toLowerCase()}-${timestamp}.html`
         const htmlContent = `
           <!DOCTYPE html>
           <html>
           <head>
             <meta charset="utf-8">
-            <title>One Page Binder</title>
+            <title>${bookTitle}</title>
             <style>
+              @page {
+                size: ${pageSize === 'A4' ? 'A4' : pageSize === 'Letter' ? 'letter' : 'A5'};
+                margin: 1in;
+              }
               body { 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 line-height: 1.6;
@@ -323,11 +455,28 @@ export default function OnePageBinder() {
                 padding-bottom: 10px;
                 margin-bottom: 30px;
               }
+              .page-break {
+                page-break-before: always;
+                border-top: 1px dashed #ccc;
+                padding-top: 20px;
+                margin-top: 20px;
+              }
+              .metadata {
+                font-size: 0.9em;
+                color: #666;
+                margin-bottom: 30px;
+                text-align: center;
+              }
             </style>
           </head>
           <body>
-            <h1>One Page Binder</h1>
-            <div>${content.replace(/\n/g, "<br>")}</div>
+            <h1>${bookTitle}</h1>
+            <div class="metadata">
+              Exported from Qi - A quiet place to write<br>
+              Date: ${new Date().toLocaleDateString()}<br>
+              Pages: ${exportPages.length} | Words: ${totalWords}
+            </div>
+            <div>${exportContent.replace(/--- Page Break ---/g, '<div class="page-break"></div>').replace(/\n/g, "<br>")}</div>
           </body>
           </html>
         `
@@ -343,6 +492,152 @@ export default function OnePageBinder() {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
       }
+    } else if (format === "pdf") {
+      // For PDF, we'll create an HTML version optimized for printing
+      const filename = `${bookTitle.replace(/\s+/g, '-').toLowerCase()}-${timestamp}.html`
+      const pdfContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${bookTitle}</title>
+          <style>
+            @page {
+              size: ${pageSize === 'A4' ? 'A4' : pageSize === 'Letter' ? 'letter' : 'A5'};
+              margin: 1in;
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+            body { 
+              font-family: 'Times New Roman', serif;
+              line-height: 1.6;
+              font-size: 12pt;
+              white-space: pre-wrap;
+            }
+            h1 {
+              text-align: center;
+              font-size: 18pt;
+              margin-bottom: 30px;
+            }
+            .page-break {
+              page-break-before: always;
+            }
+            .metadata {
+              font-size: 10pt;
+              color: #666;
+              margin-bottom: 30px;
+              text-align: center;
+            }
+            .print-button {
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              padding: 10px 20px;
+              background: #007bff;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+            }
+          </style>
+        </head>
+        <body>
+          <button class="print-button no-print" onclick="window.print()">Print to PDF</button>
+          <h1>${bookTitle}</h1>
+          <div class="metadata">
+            Exported from Qi - A quiet place to write<br>
+            Date: ${new Date().toLocaleDateString()}<br>
+            Pages: ${exportPages.length} | Words: ${totalWords}
+          </div>
+          <div>${exportContent.replace(/--- Page Break ---/g, '<div class="page-break"></div>').replace(/\n/g, "<br>")}</div>
+        </body>
+        </html>
+      `
+
+      const blob = new Blob([pdfContent], { type: "text/html;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      a.style.display = "none"
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      // Also open in new window for immediate printing
+      const printWindow = window.open(url, '_blank')
+      if (printWindow) {
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.focus()
+          }, 500)
+        }
+      }
+    } else if (format === "epub") {
+      // For EPUB, we'll create a structured HTML that can be converted
+      const filename = `${bookTitle.replace(/\s+/g, '-').toLowerCase()}-${timestamp}-epub.html`
+      const epubContent = `
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml">
+        <head>
+          <meta charset="utf-8"/>
+          <title>${bookTitle}</title>
+          <style>
+            body { 
+              font-family: Georgia, serif;
+              line-height: 1.6;
+              max-width: 35em;
+              margin: 0 auto;
+              padding: 2em;
+            }
+            h1 { 
+              text-align: center;
+              font-size: 2em;
+              margin-bottom: 1em;
+            }
+            .chapter {
+              page-break-before: always;
+              margin-top: 2em;
+            }
+            .metadata {
+              font-size: 0.9em;
+              color: #666;
+              margin-bottom: 2em;
+              text-align: center;
+              font-style: italic;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${bookTitle}</h1>
+          <div class="metadata">
+            Exported from Qi - A quiet place to write<br/>
+            ${new Date().toLocaleDateString()}<br/>
+            ${exportPages.length} pages, ${totalWords} words
+          </div>
+          ${exportPages.map((page, idx) => 
+            `<div class="chapter">
+              <h2>Page ${idx + 1}</h2>
+              <div>${page.content.replace(/\n/g, "<br/>")}</div>
+            </div>`
+          ).join('')}
+        </body>
+        </html>
+      `
+
+      const blob = new Blob([epubContent], { type: "text/html;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      a.style.display = "none"
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
     }
   }
 
@@ -365,7 +660,7 @@ export default function OnePageBinder() {
       printWindow.document.write(`
         <html>
           <head>
-            <title>One Page Binder</title>
+            <title>Qi</title>
             <style>
               body { 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -384,7 +679,7 @@ export default function OnePageBinder() {
             </style>
           </head>
           <body>
-            <h1>One Page Binder</h1>
+            <h1>Qi</h1>
             <div>${content.replace(/\n/g, "<br>")}</div>
           </body>
         </html>
@@ -399,8 +694,8 @@ export default function OnePageBinder() {
     if (navigator.share && window.isSecureContext) {
       try {
         await navigator.share({
-          title: "One Page Binder",
-          text: "Check out this amazing writing tool!",
+          title: "Qi",
+          text: "Check out Qi – A quiet place to write!",
           url: window.location.href,
         })
       } catch (error) {
@@ -428,130 +723,41 @@ export default function OnePageBinder() {
     return null
   }
 
-  // Landing Page
+  // Landing Page - Simple White Design
   if (showLanding) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-        {/* Navigation */}
-        <nav className="container mx-auto px-4 py-6 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-white" />
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="text-center space-y-8 max-w-md w-full">
+          {/* Logo and Title */}
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <img 
+                src="/qilogo.png" 
+                alt="Qi Logo" 
+                className="h-16 w-auto max-w-16"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = document.createElement('h1');
+                  fallback.textContent = getTranslation(language, 'appName');
+                  fallback.className = 'text-4xl font-light text-black tracking-wide';
+                  e.currentTarget.parentNode?.appendChild(fallback);
+                }}
+              />
             </div>
-            <span className="text-xl font-bold">One Page Binder</span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="text-muted-foreground"
-            >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleShare}>
-              <Share2 className="w-4 h-4 mr-2" />
-              Share
-            </Button>
-          </div>
-        </nav>
-
-        {/* Hero Section */}
-        <div className="container mx-auto px-4 py-20 text-center">
-          <div className="max-w-4xl mx-auto space-y-8">
-            {/* Animated Badge */}
-            <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 px-4 py-2 rounded-full text-sm font-medium text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-500">
-              <Sparkles className="w-4 h-4" />
-              <span>Your digital writing companion</span>
-            </div>
-
-            {/* Main Heading */}
-            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent animate-in fade-in-50 duration-700">
-              Write. Save.
-              <br />
-              <span className="text-transparent bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text">
-                Never Lose.
-              </span>
-            </h1>
-
-            {/* Subtitle */}
-            <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto animate-in fade-in-50 duration-1000">
-              A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing.
+            <p className="text-lg text-gray-500 font-light">
+              {getTranslation(language, 'tagline')}
             </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 animate-in fade-in-50 duration-1200">
-              <Button
-                size="lg"
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-3 text-lg"
-                onClick={handleEnterBinder}
-              >
-                Start Writing
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-              <Button variant="outline" size="lg" className="px-8 py-3 text-lg bg-transparent">
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Learn More
-              </Button>
-            </div>
           </div>
+
+          {/* Enter Button */}
+          <Button
+            onClick={handleEnterQi}
+            className="bg-black hover:bg-gray-900 text-white px-8 py-3 text-base font-normal rounded-none transition-colors duration-200 border border-black"
+            size="lg"
+          >
+            {getTranslation(language, 'enter')}
+          </Button>
         </div>
-
-        {/* Features Section */}
-        <div className="container mx-auto px-4 py-20">
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-700">
-              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl flex items-center justify-center">
-                <Shield className="w-8 h-8 text-green-600 dark:text-green-400" />
-              </div>
-              <h3 className="text-xl font-semibold">Privacy First</h3>
-              <p className="text-muted-foreground">
-                Everything saves locally on your device. No cloud, no tracking, complete privacy.
-              </p>
-            </div>
-
-            <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-1000">
-              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl flex items-center justify-center">
-                <Zap className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="text-xl font-semibold">Lightning Fast</h3>
-              <p className="text-muted-foreground">
-                Instant auto-save, zero distractions, and seamless offline experience.
-              </p>
-            </div>
-
-            <div className="text-center space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50 hover:border-border transition-all duration-300 animate-in fade-in-50 duration-1300">
-              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl flex items-center justify-center">
-                <Smartphone className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-              </div>
-              <h3 className="text-xl font-semibold">Works Everywhere</h3>
-              <p className="text-muted-foreground">Desktop, tablet, or phone - your writing follows you everywhere.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <footer className="container mx-auto px-4 py-12 border-t border-border/50">
-          <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded flex items-center justify-center">
-                <FileText className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-semibold">One Page Binder</span>
-            </div>
-            <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-              <Link href="/about" className="hover:text-foreground transition-colors">
-                About
-              </Link>
-              <Link href="/privacy" className="hover:text-foreground transition-colors">
-                Privacy
-              </Link>
-              <Link href="/terms" className="hover:text-foreground transition-colors">
-                Terms
-              </Link>
-            </div>
-          </div>
-        </footer>
       </div>
     )
   }
@@ -562,13 +768,13 @@ export default function OnePageBinder() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="max-w-md w-full space-y-8 text-center animate-in fade-in-50 duration-500">
           <div className="space-y-4">
-            <div className="w-24 h-24 mx-auto bg-amber-100 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-700">
-              <FileText className="w-12 h-12 text-amber-600 dark:text-amber-400" />
+            <div className="w-24 h-24 mx-auto bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-700">
+              <FileText className="w-12 h-12 text-gray-600 dark:text-gray-400" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-foreground">One Page Binder</h1>
+              <h1 className="text-3xl font-bold text-foreground">Qi</h1>
               <p className="text-muted-foreground text-lg">
-                A single-page digital folder for anything you don't want to lose
+                A quiet place to write
               </p>
             </div>
           </div>
@@ -589,10 +795,10 @@ export default function OnePageBinder() {
           </div>
 
           <div className="space-y-4">
-            <p className="text-foreground font-medium">Welcome to One Page Binder</p>
+            <p className="text-foreground font-medium">Welcome to Qi</p>
             <p className="text-muted-foreground">Enter below</p>
-            <Button onClick={handleEnterBinder} className="w-full" size="lg" type="button">
-              Enter Your Binder
+            <Button onClick={handleEnterQi} className="w-full" size="lg" type="button">
+              Enter Qi
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
@@ -628,8 +834,8 @@ export default function OnePageBinder() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-4 animate-in fade-in-50 duration-500">
           <Lock className="w-16 h-16 mx-auto text-muted-foreground animate-in zoom-in-75 duration-700" />
-          <h1 className="text-2xl font-bold">One Page Binder</h1>
-          <p className="text-muted-foreground">Your binder is locked</p>
+          <h1 className="text-2xl font-bold">Qi</h1>
+          <p className="text-muted-foreground">Your writing space is locked</p>
           <Button onClick={() => setShowUnlockDialog(true)}>
             <Unlock className="w-4 h-4 mr-2" />
             Unlock
@@ -670,10 +876,7 @@ export default function OnePageBinder() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/20 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <h1 className="text-xl font-bold">One Page Binder</h1>
+            <h1 className="text-xl font-bold">Qi</h1>
             {isSaving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
             {isOffline && (
               <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 rounded-full flex items-center">
@@ -684,6 +887,43 @@ export default function OnePageBinder() {
           </div>
 
           <div className="flex items-center space-x-2 overflow-x-auto sm:overflow-visible">
+            <Button variant="ghost" size="icon" onClick={handleGoHome} title="Go to landing page" type="button">
+              <Home className="w-4 h-4" />
+            </Button>
+
+            {/* View Mode Toggle */}
+            <Button
+              variant={viewMode === "single" ? "default" : "ghost"}
+              size="icon"
+              type="button"
+              onClick={() => setViewMode("single")}
+              title="Single page view"
+            >
+              <SinglePage className="w-4 h-4" />
+            </Button>
+
+            <Button
+              variant={viewMode === "book" ? "default" : "ghost"}
+              size="icon"
+              type="button"
+              onClick={() => setViewMode("book")}
+              title="Book view (dual pages)"
+            >
+              <BookOpen className="w-4 h-4" />
+            </Button>
+
+            {/* Page Size Selector */}
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(e.target.value as "A4" | "Letter" | "A5")}
+              className="px-2 py-1 text-sm bg-background border border-border rounded"
+              title="Page size"
+            >
+              <option value="A4">A4</option>
+              <option value="Letter">Letter</option>
+              <option value="A5">A5</option>
+            </select>
+
             {mounted && isTauri() && (
               <Button
                 variant={showNativeFileSystem ? "default" : "ghost"}
@@ -711,24 +951,71 @@ export default function OnePageBinder() {
               <Share2 className="w-4 h-4" />
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={() => handleExport("txt")} title="Save as TXT" type="button">
-              <FileDown className="w-4 h-4" />
-            </Button>
-
-            <Button variant="ghost" size="icon" onClick={() => handleExport("docx")} title="Save as DOCX" type="button">
-              <FileCheck className="w-4 h-4" />
-            </Button>
-
-            <Button variant="ghost" size="icon" asChild title="Import from file" type="button">
-              <label htmlFor="import-file" className="cursor-pointer">
-                <FileUp className="w-4 h-4" />
-                <input id="import-file" type="file" accept=".txt" onChange={handleImport} className="hidden" />
-              </label>
-            </Button>
-
-            <Button variant="ghost" size="icon" onClick={handlePrint} title="Print" type="button">
-              <Printer className="w-4 h-4" />
-            </Button>
+            {/* Export Dropdown Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" title="Export options">
+                  <FileDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="px-2 py-1.5 text-sm font-semibold">Export Options</div>
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem onClick={() => handleExport("txt")}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span>Export as TXT</span>
+                    <span className="text-xs text-muted-foreground">Plain text format, universal compatibility</span>
+                  </div>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={() => handleExport("docx")}>
+                  <FileCheck className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span>Export as DOCX</span>
+                    <span className="text-xs text-muted-foreground">Microsoft Word format with formatting</span>
+                  </div>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={() => handleExport("pdf")}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span>Export as PDF</span>
+                    <span className="text-xs text-muted-foreground">Print-ready format, opens print dialog</span>
+                  </div>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={() => handleExport("epub")}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span>Export as EPUB</span>
+                    <span className="text-xs text-muted-foreground">E-book format for digital readers</span>
+                  </div>
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem onClick={handlePrint}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span>Print Document</span>
+                    <span className="text-xs text-muted-foreground">Print current content directly</span>
+                  </div>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <label htmlFor="import-file" className="cursor-pointer flex items-center">
+                    <FileUp className="w-4 h-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span>Import from File</span>
+                      <span className="text-xs text-muted-foreground">Load text from .txt file</span>
+                    </div>
+                    <input id="import-file" type="file" accept=".txt" onChange={handleImport} className="hidden" />
+                  </label>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <Button
               variant={timestampsEnabled ? "default" : "ghost"}
@@ -753,49 +1040,243 @@ export default function OnePageBinder() {
               </select>
             )}
 
-            <Button variant="ghost" size="icon" onClick={handleLock} title="Lock binder" type="button">
+            <Button variant="ghost" size="icon" onClick={handleLock} title="Lock writing space" type="button">
               <Lock className="w-4 h-4" />
             </Button>
+
+            {/* Language Selector */}
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className="px-2 py-1 text-sm bg-background border border-border rounded"
+              title={getTranslation(language, 'language')}
+            >
+              <option value="en">{getTranslation(language, 'english')}</option>
+              <option value="zh">{getTranslation(language, 'chinese')}</option>
+            </select>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        {showNativeFileSystem && (
-          <div className="mb-8">
-            <Tabs defaultValue="cross-platform" className="w-full max-w-3xl mx-auto">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="cross-platform">Cross-Platform API</TabsTrigger>
-                <TabsTrigger value="native" disabled={!isTauri()}>
-                  Native Tauri API
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="cross-platform" className="mt-4">
-                <FileSystemDemo />
-              </TabsContent>
-              <TabsContent value="native" className="mt-4">
-                <TauriNativeFS />
-              </TabsContent>
-            </Tabs>
+        {viewMode === "single" ? (
+          /* Single Page View */
+          <div className="space-y-8">
+            {/* Page Navigation */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage + 1} of {pages.length}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {getCurrentPageSize().width} × {getCurrentPageSize().height} ({pageSize})
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                  disabled={currentPage === 0}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
+                  disabled={currentPage === pages.length - 1}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Single Page */}
+            <div className="flex justify-center">
+              <div 
+                className={`${getCurrentPageSize().className} min-h-[297mm] bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative`}
+                style={{ 
+                  aspectRatio: pageSize === "A4" ? "210/297" : pageSize === "Letter" ? "8.5/11" : "148/210"
+                }}
+              >
+                <textarea
+                  ref={(el) => { pageRefs.current[currentPage] = el }}
+                  value={pages[currentPage]?.content || ""}
+                  onChange={(e) => {
+                    const newPages = [...pages]
+                    newPages[currentPage] = {
+                      ...newPages[currentPage],
+                      content: e.target.value,
+                      wordCount: countWords(e.target.value)
+                    }
+                    setPages(newPages)
+                    
+                    // Auto-create new page if current page is full
+                    if (shouldCreateNewPage(e.target.value) && currentPage === pages.length - 1) {
+                      const newPage = { id: String(pages.length + 1), content: "", wordCount: 0 }
+                      setPages([...newPages, newPage])
+                    }
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    timestampsEnabled
+                      ? "Start writing... Timestamps will be added automatically after breaks or double-enter. Press Ctrl+T to insert manually."
+                      : "Start writing... Everything auto-saves locally."
+                  }
+                  className="w-full h-full resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground text-sm leading-relaxed"
+                  style={{
+                    fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
+                  }}
+                  aria-label={`Page ${currentPage + 1} writing space`}
+                />
+                
+                {/* Page Number */}
+                <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
+                  {currentPage + 1}
+                </div>
+                
+                {/* Word Count */}
+                <div className="absolute bottom-4 left-4 text-xs text-muted-foreground">
+                  {pages[currentPage]?.wordCount || 0} words
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Book View */
+          <div className="space-y-8">
+            {/* Book Navigation */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">
+                  Pages {currentBookPage + 1}-{Math.min(currentBookPage + 2, pages.length)} of {pages.length}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {getCurrentPageSize().width} × {getCurrentPageSize().height} ({pageSize})
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentBookPage(Math.max(0, currentBookPage - 2))}
+                  disabled={currentBookPage === 0}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCurrentBookPage(Math.min(pages.length - 1, currentBookPage + 2))}
+                  disabled={currentBookPage >= pages.length - 1}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Book Pages (Side by Side) */}
+            <div className="flex justify-center space-x-4">
+              {/* Left Page */}
+              <div 
+                className={`${getCurrentPageSize().className} min-h-[297mm] bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative`}
+                style={{ 
+                  aspectRatio: pageSize === "A4" ? "210/297" : pageSize === "Letter" ? "8.5/11" : "148/210"
+                }}
+              >
+                <textarea
+                  ref={(el) => { pageRefs.current[currentBookPage] = el }}
+                  value={pages[currentBookPage]?.content || ""}
+                  onChange={(e) => {
+                    const newPages = [...pages]
+                    newPages[currentBookPage] = {
+                      ...newPages[currentBookPage],
+                      content: e.target.value,
+                      wordCount: countWords(e.target.value)
+                    }
+                    setPages(newPages)
+                    
+                    // Auto-create new page if current page is full
+                    if (shouldCreateNewPage(e.target.value) && currentBookPage === pages.length - 1) {
+                      const newPage = { id: String(pages.length + 1), content: "", wordCount: 0 }
+                      setPages([...newPages, newPage])
+                    }
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Start writing..."
+                  className="w-full h-full resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground text-sm leading-relaxed"
+                  style={{
+                    fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
+                  }}
+                  aria-label={`Page ${currentBookPage + 1} writing space`}
+                />
+                
+                {/* Page Number */}
+                <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
+                  {currentBookPage + 1}
+                </div>
+                
+                {/* Word Count */}
+                <div className="absolute bottom-4 left-4 text-xs text-muted-foreground">
+                  {pages[currentBookPage]?.wordCount || 0} words
+                </div>
+              </div>
+
+              {/* Right Page */}
+              {currentBookPage + 1 < pages.length && (
+                <div 
+                  className={`${getCurrentPageSize().className} min-h-[297mm] bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative`}
+                  style={{ 
+                    aspectRatio: pageSize === "A4" ? "210/297" : pageSize === "Letter" ? "8.5/11" : "148/210"
+                  }}
+                >
+                  <textarea
+                    ref={(el) => { pageRefs.current[currentBookPage + 1] = el }}
+                    value={pages[currentBookPage + 1]?.content || ""}
+                    onChange={(e) => {
+                      const newPages = [...pages]
+                      newPages[currentBookPage + 1] = {
+                        ...newPages[currentBookPage + 1],
+                        content: e.target.value,
+                        wordCount: countWords(e.target.value)
+                      }
+                      setPages(newPages)
+                      
+                      // Auto-create new page if current page is full
+                      if (shouldCreateNewPage(e.target.value) && currentBookPage + 1 === pages.length - 1) {
+                        const newPage = { id: String(pages.length + 1), content: "", wordCount: 0 }
+                        setPages([...newPages, newPage])
+                      }
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Continue writing..."
+                    className="w-full h-full resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground text-sm leading-relaxed"
+                    style={{
+                      fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
+                    }}
+                    aria-label={`Page ${currentBookPage + 2} writing space`}
+                  />
+                  
+                  {/* Page Number */}
+                  <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">
+                    {currentBookPage + 2}
+                  </div>
+                  
+                  {/* Word Count */}
+                  <div className="absolute bottom-4 left-4 text-xs text-muted-foreground">
+                    {pages[currentBookPage + 1]?.wordCount || 0} words
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={handleContentChange}
-          onKeyDown={handleKeyDown}
-          placeholder={
-            timestampsEnabled
-              ? "Start writing... Timestamps will be added automatically after breaks or double-enter. Press Ctrl+T to insert manually."
-              : "Start writing... Everything auto-saves locally."
-          }
-          className="w-full min-h-[calc(100vh-200px)] p-6 text-base leading-relaxed resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20 rounded-md transition-all"
-          style={{
-            fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
-          }}
-          aria-label="Binder content"
-        />
       </main>
 
       {/* Set PIN Dialog */}
@@ -804,7 +1285,7 @@ export default function OnePageBinder() {
           <DialogHeader>
             <DialogTitle>Set 4-Digit PIN</DialogTitle>
             <DialogDescription>
-              {isSettingPin ? "Create a PIN to lock your binder" : "Enter your 4-digit PIN"}
+              {isSettingPin ? "Create a PIN to lock your writing space" : "Enter your 4-digit PIN"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -832,7 +1313,7 @@ export default function OnePageBinder() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Enter PIN</DialogTitle>
-            <DialogDescription>Enter your 4-digit PIN to unlock your binder</DialogDescription>
+            <DialogDescription>Enter your 4-digit PIN to unlock your writing space</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -858,8 +1339,8 @@ export default function OnePageBinder() {
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Share One Page Binder</DialogTitle>
-            <DialogDescription>Share this amazing writing tool with others</DialogDescription>
+            <DialogTitle>Share Qi</DialogTitle>
+            <DialogDescription>Share this quiet place to write with others</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
@@ -877,7 +1358,7 @@ export default function OnePageBinder() {
               <Button
                 onClick={() =>
                   window.open(
-                    `https://twitter.com/intent/tweet?text=${encodeURIComponent("Check out One Page Binder - an amazing writing tool!")}&url=${encodeURIComponent(window.location.href)}`,
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent("Check out Qi – A quiet place to write!")}&url=${encodeURIComponent(window.location.href)}`,
                     "_blank",
                   )
                 }

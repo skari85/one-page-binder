@@ -14,12 +14,12 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "One Page Binder - Your Digital Writing Companion",
-  description: "A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing. Start writing and never lose your thoughts again.",
-  keywords: ["writing tool", "note taking", "local storage", "privacy", "minimalist", "text editor", "writing app"],
-  authors: [{ name: "One Page Binder Team" }],
-  creator: "One Page Binder",
-  publisher: "One Page Binder",
+  title: "Qi – A quiet place to write",
+  description: "A quiet place to write. A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing.",
+  keywords: ["writing tool", "note taking", "local storage", "privacy", "minimalist", "text editor", "writing app", "quiet", "peaceful"],
+  authors: [{ name: "Qi Team" }],
+  creator: "Qi",
+  publisher: "Qi",
   formatDetection: {
     email: false,
     address: false,
@@ -30,16 +30,16 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: "One Page Binder - Your Digital Writing Companion",
-    description: "A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing.",
+    title: "Qi – A quiet place to write",
+    description: "A quiet place to write. A minimalist writing tool that saves everything locally.",
     url: 'https://one-page-binder.vercel.app',
-    siteName: 'One Page Binder',
+    siteName: 'Qi',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'One Page Binder - Write. Save. Never Lose.',
+        alt: 'Qi – A quiet place to write',
       },
     ],
     locale: 'en_US',
@@ -47,8 +47,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: "One Page Binder - Your Digital Writing Companion",
-    description: "A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing.",
+    title: "Qi – A quiet place to write",
+    description: "A quiet place to write. A minimalist writing tool that saves everything locally.",
     images: ['/og-image.png'],
   },
   robots: {
@@ -78,9 +78,10 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
         <meta name="theme-color" content="#f59e0b" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="One Page Binder" />
+        <meta name="apple-mobile-web-app-title" content="Qi" />
         <meta name="msapplication-TileColor" content="#f59e0b" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         
@@ -151,8 +152,8 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              "name": "One Page Binder",
-              "description": "A minimalist writing tool that saves everything locally",
+              "name": "Qi",
+              "description": "A quiet place to write. A minimalist writing tool that saves everything locally.",
               "url": "https://one-page-binder.vercel.app",
               "applicationCategory": "ProductivityApplication",
               "operatingSystem": "Web Browser",
@@ -163,7 +164,7 @@ export default function RootLayout({
               },
               "author": {
                 "@type": "Organization",
-                "name": "One Page Binder"
+                "name": "Qi"
               }
             })
           }}
@@ -177,7 +178,7 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >

@@ -1,7 +1,7 @@
 // Service Worker for One Page Binder PWA
-const CACHE_NAME = 'one-page-binder-v2';
-const STATIC_CACHE = 'static-v2';
-const DYNAMIC_CACHE = 'dynamic-v2';
+const CACHE_NAME = 'one-page-binder-v6';
+const STATIC_CACHE = 'static-v6';
+const DYNAMIC_CACHE = 'dynamic-v6';
 
 // Assets to cache immediately
 const STATIC_ASSETS = [
@@ -10,8 +10,7 @@ const STATIC_ASSETS = [
   '/offline.html',
   '/icons/icon-512x512.png',
   '/icons/maskable-icon.png',
-  '/favicon.ico',
-  '/apple-icon.png'
+  '/favicon.ico'
 ];
 
 // Install event - cache static assets
@@ -121,21 +120,29 @@ async function handleFetch(request) {
       }
     }
     
-    // Strategy 3: Stale While Revalidate for other resources
-    const cachedResponse = await caches.match(request);
-    const networkPromise = fetch(request).then(response => {
-      if (response.ok) {
-        const cache = caches.open(DYNAMIC_CACHE);
-        cache.then(c => c.put(request, response.clone()));
+    // Strategy 3: Network First with cache fallback for other resources
+    try {
+      const networkResponse = await fetch(request);
+      if (networkResponse.ok) {
+        // Clone the response before caching to avoid "already used" error
+        const responseClone = networkResponse.clone();
+        const cache = await caches.open(DYNAMIC_CACHE);
+        cache.put(request, responseClone);
       }
-      return response;
-    }).catch(() => null);
-    
-    return cachedResponse || await networkPromise || new Response('Offline', {
-      status: 503,
-      statusText: 'Service Unavailable',
-      headers: { 'Content-Type': 'text/plain' }
-    });
+      return networkResponse;
+    } catch (error) {
+      // Network failed, try cache
+      const cachedResponse = await caches.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      
+      return new Response('Offline', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'text/plain' }
+      });
+    }
     
   } catch (error) {
     console.error('Fetch handler error:', error);
@@ -236,13 +243,8 @@ async function syncContent() {
   console.log('Periodic sync triggered');
 }
 
-// Update notification
+// Update notification - removed problematic BroadcastChannel
 self.addEventListener('install', event => {
-  // Notify clients about the update
-  const channel = new BroadcastChannel('sw-updates');
-  channel.postMessage({
-    type: 'UPDATE_AVAILABLE',
-    sw: self
-  });
-  channel.close();
+  // Skip waiting to activate immediately
+  self.skipWaiting();
 });

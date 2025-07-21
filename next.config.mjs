@@ -17,12 +17,32 @@ const nextConfig = {
   experimental: {
     webpackBuildWorker: true,
   },
-  // Disable hot reloading to prevent infinite compilation loop
-  webpack: (config, { dev }) => {
+  // Optimize webpack for better performance
+  webpack: (config, { dev, isServer }) => {
     if (dev) {
       config.watchOptions = {
         poll: false,
-        ignored: /node_modules/,
+        ignored: ['**/node_modules/**', '**/.git/**', '**/.next/**'],
+        aggregateTimeout: 300,
+      }
+      // Reduce the number of files watched
+      config.snapshot = {
+        managedPaths: [/^(.+?[\\/]node_modules[\\/])/],
+        immutablePaths: [],
+        buildDependencies: {
+          hash: true,
+          timestamp: true,
+        },
+        module: {
+          timestamp: true,
+        },
+        resolve: {
+          timestamp: true,
+        },
+        resolveBuildDependencies: {
+          hash: true,
+          timestamp: true,
+        },
       }
     }
     return config
