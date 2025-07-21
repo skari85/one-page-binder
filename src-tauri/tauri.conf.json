@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "One Page Binder",
+  "productName": "QI",
   "version": "0.1.0",
-  "identifier": "com.onepage.binder",
+  "identifier": "com.qi.app",
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3001",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "One Page Binder",
+        "title": "QI",
         "width": 800,
         "height": 600,
         "resizable": true,
@@ -27,12 +27,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
   }
 }
