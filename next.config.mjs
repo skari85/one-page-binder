@@ -11,12 +11,6 @@ const nextConfig = {
   },
   output: 'export',
   distDir: 'out',
-  trailingSlash: true,
-  assetPrefix: process.env.NODE_ENV === 'production' ? undefined : undefined,
-  // PWA Configuration
-  experimental: {
-    webpackBuildWorker: true,
-  },
   // Disable hot reloading to prevent infinite compilation loop
   webpack: (config, { dev }) => {
     if (dev) {
@@ -26,33 +20,6 @@ const nextConfig = {
       }
     }
     return config
-  },
-  // Headers for PWA
-  async headers() {
-    return [
-      {
-        source: '/sw.js',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=0, must-revalidate',
-          },
-          {
-            key: 'Service-Worker-Allowed',
-            value: '/',
-          },
-        ],
-      },
-      {
-        source: '/manifest.json',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-    ]
   },
 }
 
