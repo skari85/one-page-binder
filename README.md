@@ -1,6 +1,6 @@
-# One Page Binder
+# QI
 
-A single-page digital folder for anything you don't want to lose. One Page Binder is a minimalist note-taking application that focuses on privacy and simplicity.
+QI is a minimalist note-taking application that focuses on privacy and simplicity.
 
 ## Features
 

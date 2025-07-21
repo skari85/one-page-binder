@@ -8,26 +8,24 @@ import { PWAUpdatePrompt } from "@/components/pwa-update-prompt"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "One Page Binder",
+  title: "QI",
   description: "A single-page digital folder for anything you don't want to lose",
-  generator: 'v0.dev',
+  generator: "v0.dev",
   icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-icon.png',
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
   },
   keywords: ["notes", "binder", "digital notebook", "privacy", "local storage"],
-  authors: [
-    { name: "One Page Binder" }
-  ],
+  authors: [{ name: "QI" }],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "One Page Binder"
+    title: "QI",
   },
   formatDetection: {
-    telephone: false
-  }
+    telephone: false,
+  },
 }
 
 export const viewport = {
@@ -37,8 +35,8 @@ export const viewport = {
   userScalable: false,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "#020817" }
-  ]
+    { media: "(prefers-color-scheme: dark)", color: "#020817" },
+  ],
 }
 
 export default function RootLayout({
@@ -52,7 +50,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="One Page Binder" />
+        <meta name="apple-mobile-web-app-title" content="QI" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#3b82f6" />

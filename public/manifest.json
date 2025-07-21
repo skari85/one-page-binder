@@ -1,6 +1,6 @@
 {
-  "name": "One Page Binder",
-  "short_name": "Binder",
+  "name": "QI",
+  "short_name": "QI",
   "description": "A single-page digital folder for anything you don't want to lose",
   "start_url": "/",
   "display": "standalone",
