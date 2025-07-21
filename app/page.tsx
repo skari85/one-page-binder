@@ -18,6 +18,7 @@ import {
   Eye,
   StickyNote,
   ChevronDown,
+  Share2,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -563,7 +564,7 @@ export default function QI() {
             </Button>
 
             {/* Private Share */}
-            <PrivateShare content={content} quickNotes={quickNotes} />
+            <PrivateShare content={content} quickNotes={quickNotes} icon={<Share2 className="h-4 w-4" />} />
 
             {/* Print */}
             <Button variant="ghost" size="sm" onClick={() => window.print()}>
