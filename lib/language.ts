@@ -1,16 +1,20 @@
 "use client"
 
-import { translations, type Language } from "./translations"
+import { useState, useEffect } from "react"
+import type { Language } from "./translations"
+import { getTranslation } from "./translations"
+
+const LANGUAGE_KEY = "qi-language"
 
 export function getLanguage(): Language {
   if (typeof window === "undefined") return "en"
 
-  const saved = localStorage.getItem("qi-language")
+  const saved = localStorage.getItem(LANGUAGE_KEY)
   if (saved && (saved === "en" || saved === "zh")) {
     return saved as Language
   }
 
-  // Detect browser language
+  // Auto-detect from browser language
   const browserLang = navigator.language.toLowerCase()
   if (browserLang.startsWith("zh")) {
     return "zh"
@@ -20,9 +24,8 @@ export function getLanguage(): Language {
 }
 
 export function setLanguage(language: Language) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("qi-language", language)
-  }
+  if (typeof window === "undefined") return
+  localStorage.setItem(LANGUAGE_KEY, language)
 }
 
 export function useLanguage() {
@@ -37,16 +40,7 @@ export function useLanguage() {
     setLanguage(newLanguage)
   }
 
-  const t = (key: string) => {
-    const keys = key.split(".")
-    let value: any = translations[language]
-
-    for (const k of keys) {
-      value = value?.[k]
-    }
-
-    return value || key
-  }
+  const t = (key: string) => getTranslation(language, key)
 
   return {
     language,
@@ -54,6 +48,3 @@ export function useLanguage() {
     t,
   }
 }
-
-// Import React hooks
-import { useState, useEffect } from "react"

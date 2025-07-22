@@ -38,6 +38,8 @@ import {
   Mail,
   Send,
   CheckCircle,
+  Brain,
+  Lightbulb,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
@@ -147,6 +149,10 @@ export default function Qi() {
   const [isOffline, setIsOffline] = useState(false)
   const [showNativeFileSystem, setShowNativeFileSystem] = useState(false)
 
+  // Focus exercises state
+  const [currentExercise, setCurrentExercise] = useState<string | null>(null)
+  const [showExerciseSuggestion, setShowExerciseSuggestion] = useState(false)
+
   // Contact form state
   const [contactForm, setContactForm] = useState({
     name: "",
@@ -194,6 +200,9 @@ export default function Qi() {
     },
   }
 
+  // Focus exercises
+  const exercises = ["rightNow", "todayOnly", "objectView", "colorFeeling", "tenWords"]
+
   // Helper functions for page management
   const countWords = (text: string) => {
     return text
@@ -208,6 +217,12 @@ export default function Qi() {
     const wordCount = countWords(content)
     const currentPageSize = getCurrentPageSize()
     return wordCount >= currentPageSize.wordsPerPage
+  }
+
+  // Get random exercise for contextual suggestions
+  const getRandomExercise = () => {
+    const randomIndex = Math.floor(Math.random() * exercises.length)
+    return exercises[randomIndex]
   }
 
   // Ensure component is mounted before accessing theme
@@ -256,6 +271,16 @@ export default function Qi() {
       setShowLanding(false)
     }
   }, [])
+
+  // Show exercise suggestion when content is empty
+  useEffect(() => {
+    if (content.trim() === "" && !showLanding && !showWelcome && !isLocked) {
+      setShowExerciseSuggestion(true)
+      setCurrentExercise(getRandomExercise())
+    } else {
+      setShowExerciseSuggestion(false)
+    }
+  }, [content, showLanding, showWelcome, isLocked])
 
   // Auto-save content with visual indicator
   useEffect(() => {
@@ -567,6 +592,14 @@ export default function Qi() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleExerciseSelect = (exerciseKey: string) => {
+    setCurrentExercise(exerciseKey)
+    // Focus the textarea after selecting an exercise
+    setTimeout(() => {
+      textareaRef.current?.focus()
+    }, 100)
   }
 
   if (!mounted) {
@@ -980,6 +1013,41 @@ export default function Qi() {
                 <Home className="w-4 h-4" />
               </Button>
 
+              {/* Focus exercises dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" title={getTranslation(language, "focusExercises")}>
+                    <Brain className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <div className="px-2 py-1.5 text-sm font-semibold">{getTranslation(language, "focusExercises")}</div>
+                  <DropdownMenuSeparator />
+
+                  {exercises.map((exerciseKey) => (
+                    <DropdownMenuItem
+                      key={exerciseKey}
+                      onClick={() => handleExerciseSelect(exerciseKey)}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex items-start space-x-3 w-full">
+                        <span className="text-lg mt-0.5">
+                          {getTranslation(language, `exercises.${exerciseKey}.icon`)}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm leading-tight">
+                            {getTranslation(language, `exercises.${exerciseKey}.title`)}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1 leading-tight">
+                            {getTranslation(language, `exercises.${exerciseKey}.prompt`)}
+                          </div>
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {/* View Mode Toggle */}
               <Button
                 variant={viewMode === "single" ? "default" : "ghost"}
@@ -1148,7 +1216,30 @@ export default function Qi() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto relative">
+          {/* Contextual Exercise Suggestion */}
+          {showExerciseSuggestion && currentExercise && (
+            <div className="mb-6 p-4 bg-muted/30 border border-muted rounded-lg animate-in fade-in-50 duration-300">
+              <div className="flex items-start space-x-3">
+                <span className="text-lg mt-0.5">{getTranslation(language, `exercises.${currentExercise}.icon`)}</span>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Lightbulb className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {getTranslation(language, "tryThis")}
+                    </span>
+                  </div>
+                  <h3 className="font-medium text-sm mb-1">
+                    {getTranslation(language, `exercises.${currentExercise}.title`)}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {getTranslation(language, `exercises.${currentExercise}.prompt`)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <textarea
             ref={textareaRef}
             value={content}
