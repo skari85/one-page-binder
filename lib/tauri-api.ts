@@ -14,7 +14,7 @@ export const isTauri = (): boolean => {
 const getTauriApis = async () => {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
+      const { invoke } = await import('@tauri-apps/api/tauri');
       
       return {
         invoke,
