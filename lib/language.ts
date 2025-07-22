@@ -1,23 +1,27 @@
-import type { Language } from "./translations"
+"use client"
 
-export function getLanguage(): Language {
-  if (typeof window === "undefined") return "en"
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+import { translations, type Language } from "./translations"
 
-  const stored = localStorage.getItem("qi-language")
-  if (stored && (stored === "en" || stored === "zh")) {
-    return stored as Language
-  }
-
-  // Detect browser language
-  const browserLang = navigator.language.split("-")[0]
-  if (browserLang === "zh") {
-    return "zh"
-  }
-
-  return "en"
+interface LanguageStore {
+  language: Language
+  setLanguage: (language: Language) => void
+  t: (key: keyof typeof translations.en) => string
 }
 
-export function setLanguage(language: Language): void {
-  if (typeof window === "undefined") return
-  localStorage.setItem("qi-language", language)
-}
+export const useLanguage = create<LanguageStore>()(
+  persist(
+    (set, get) => ({
+      language: "en",
+      setLanguage: (language: Language) => set({ language }),
+      t: (key: keyof typeof translations.en) => {
+        const { language } = get()
+        return translations[language][key] || translations.en[key] || key
+      },
+    }),
+    {
+      name: "qi-language",
+    },
+  ),
+)

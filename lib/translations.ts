@@ -1,280 +1,199 @@
-export type Language = "en" | "zh"
-
 export const translations = {
   en: {
-    // App basics
-    appName: "Qi",
-    tagline: "A quiet place to write",
-    enter: "Enter",
-    english: "English",
-    chinese: "中文",
+    // Header
+    title: "Qi",
+    subtitle: "One Page Binder",
     language: "Language",
 
-    // Navigation
-    page: "Page",
-    pages: "Pages",
-    of: "of",
-    previous: "Previous",
-    next: "Next",
+    // Main content
+    placeholder: "Start writing...",
+    wordCount: "words",
+    characterCount: "characters",
 
-    // Writing
-    startWriting: "Start writing... Everything auto-saves locally.",
-    startWritingTimestamps:
-      "Start writing... Timestamps will be added automatically after breaks or double-enter. Press Ctrl+T to insert manually.",
-    continueWriting: "Continue writing...",
+    // Export options
+    export: "Export",
+    exportAs: "Export as",
+    exportTxt: "Text File (.txt)",
+    exportTxtDesc: "Plain text format",
+    exportDocx: "Word Document (.docx)",
+    exportDocxDesc: "Microsoft Word format",
+    exportPdf: "PDF Document (.pdf)",
+    exportPdfDesc: "Portable Document Format",
+    exportHtml: "HTML File (.html)",
+    exportHtmlDesc: "Web page format",
 
-    // Export
-    exportOptions: "Export Options",
-    exportAsTxt: "Export as TXT",
-    exportAsTxtDesc: "Plain text format, universal compatibility",
-    exportAsDocx: "Export as DOCX",
-    exportAsDocxDesc: "Microsoft Word format with formatting",
-    exportAsPdf: "Export as PDF",
-    exportAsPdfDesc: "Print-ready format, opens print dialog",
-    exportAsEpub: "Export as EPUB",
-    exportAsEpubDesc: "E-book format for digital readers",
-    printDocument: "Print Document",
-    printDocumentDesc: "Print current content directly",
-    importFromFile: "Import from File",
-    importFromFileDesc: "Load text from .txt file",
-
-    // Timestamps
+    // Timestamp options
+    timestamp: "Add Timestamp",
     timestampFormat: "Timestamp Format",
-    timestampFormats: {
-      datetime: "Date & Time",
-      date: "Date Only",
-      time: "Time Only",
-    },
+    timestampNone: "None",
+    timestampDate: "Date Only",
+    timestampTime: "Time Only",
+    timestampDateTime: "Date & Time",
+    timestampCustom: "Custom Format",
 
-    // Security
-    setPinTitle: "Set 4-Digit PIN",
-    setPinDescription: "Create a PIN to lock your writing space",
-    enterPinTitle: "Enter PIN",
-    enterPinDescription: "Enter your 4-digit PIN to unlock your writing space",
-    enterPin: "Enter 4-digit PIN",
-    setPin: "Set PIN",
-    unlock: "Unlock",
+    // Navigation
+    about: "About",
+    privacy: "Privacy",
+    terms: "Terms",
+    contact: "Contact",
 
-    // Sharing
-    shareTitle: "Share Qi",
-    shareDescription: "Share this quiet place to write with others",
-    shareOnTwitter: "Share on Twitter",
-    shareOnFacebook: "Share on Facebook",
+    // About page
+    aboutTitle: "About Qi",
+    aboutDescription:
+      "Qi is a minimalist writing application designed for focus and simplicity. Write everything on one page without distractions.",
+    aboutFeatures: "Features",
+    aboutFeature1: "Single page writing interface",
+    aboutFeature2: "Real-time word and character count",
+    aboutFeature3: "Multiple export formats",
+    aboutFeature4: "Local storage - your data stays private",
+    aboutFeature5: "Cross-platform compatibility",
 
-    // Landing page
+    // Privacy Policy
     privacyTitle: "Privacy Policy",
+    privacyIntro: "Your privacy is important to us. Qi is designed with privacy-first principles.",
+    privacyDataCollection: "Data Collection",
+    privacyDataCollectionText:
+      "We do not collect, store, or transmit any of your personal data or writing content. Everything you write stays on your device.",
+    privacyLocalStorage: "Local Storage",
+    privacyLocalStorageText:
+      "Your writing is saved locally in your browser's storage. This data never leaves your device unless you explicitly export it.",
+    privacyNoTracking: "No Tracking",
+    privacyNoTrackingText:
+      "We do not use analytics, cookies, or any tracking mechanisms. Your usage patterns and behavior are completely private.",
+    privacyOpenSource: "Transparency",
+    privacyOpenSourceText:
+      "Qi is built with transparency in mind. You can review how your data is handled in our open-source code.",
+
+    // Terms of Service
     termsTitle: "Terms of Service",
+    termsIntro: "By using Qi, you agree to these simple terms:",
+    termsUse: "Use of Service",
+    termsUseText:
+      "Qi is provided as-is for personal and professional writing. Use it responsibly and in accordance with applicable laws.",
+    termsData: "Your Data",
+    termsDataText:
+      "You retain full ownership of all content you create. We recommend regularly backing up important work.",
+    termsLimitations: "Service Limitations",
+    termsLimitationsText:
+      "While we strive for reliability, we cannot guarantee uninterrupted service. Always backup important content.",
+    termsContact: "Questions?",
+    termsContactText: "If you have questions about these terms, contact us at overthinkr9@gmail.com",
+
+    // Contact
     contactTitle: "Contact Us",
     contactDescription: "Have questions or feedback? We'd love to hear from you.",
-    contactName: "Name",
     contactEmail: "Email",
+    contactEmailPlaceholder: "your@email.com",
+    contactName: "Name",
+    contactNamePlaceholder: "Your name",
     contactMessage: "Message",
+    contactMessagePlaceholder: "Your message...",
     contactSend: "Send Message",
-    contactSuccess: "Thank you! Your message has been sent.",
+    contactSending: "Sending...",
+    contactSuccess: "Message sent successfully!",
+    contactError: "Failed to send message. Please try again.",
+    contactDirectEmail: "Or email us directly at:",
 
-    // Privacy content
-    privacyContent: {
-      title: "Your Privacy Matters",
-      subtitle: "We believe your writing should remain private and secure.",
-      localOnly: "Local Storage Only",
-      localOnlyDesc:
-        "All your writing is stored locally on your device. We never send your content to our servers or the cloud.",
-      noTracking: "No Tracking",
-      noTrackingDesc:
-        "We don't track your usage, collect analytics about your writing habits, or monitor your behavior.",
-      noAccounts: "No Accounts Required",
-      noAccountsDesc: "You don't need to create an account, provide personal information, or sign up for anything.",
-      openSource: "Open Source",
-      openSourceDesc: "Our code is open source, so you can verify exactly how we handle your data and privacy.",
-      dataCollection: "What We Don't Collect",
-      dataCollectionList: [
-        "Your writing content or documents",
-        "Personal information or contact details",
-        "Usage patterns or writing statistics",
-        "Cookies for tracking purposes",
-        "Any data shared with third parties",
-      ],
-      technical: "Technical Details",
-      technicalList: [
-        "All data stored in browser's localStorage",
-        "No server-side storage of content",
-        "No network requests for writing data",
-        "Works completely offline",
-        "Data never leaves your device",
-      ],
-    },
-
-    // Terms content
-    termsContent: {
-      title: "Simple Terms",
-      subtitle: "Clear terms for a simple writing app.",
-      acceptance: "By using Qi, you agree to these terms. If you don't agree, please don't use the app.",
-      service:
-        "Qi is a minimalist writing tool that stores content locally on your device. We provide it 'as is' without warranties.",
-      responsibilities: "Your Responsibilities",
-      responsibilitiesList: [
-        "Back up your own writing - we can't recover lost data",
-        "Use the app only for lawful, appropriate content",
-        "Understand that you retain full ownership of your writing",
-        "Keep your PIN secure if you choose to use the lock feature",
-      ],
-      limitations: "Limitations",
-      limitationsList: [
-        "We don't guarantee the app will always be available",
-        "We're not responsible for any data loss",
-        "The app is provided without warranties of any kind",
-        "We may update these terms occasionally",
-      ],
-      termination: "You can stop using Qi anytime. We may discontinue the service with notice.",
-      contact: "Questions about these terms? Contact us at overthinkr9@gmail.com",
-    },
+    // Common
+    close: "Close",
+    loading: "Loading...",
+    error: "Error",
+    success: "Success",
   },
   zh: {
-    // App basics
-    appName: "Qi",
-    tagline: "一个安静的写作空间",
-    enter: "进入",
-    english: "English",
-    chinese: "中文",
+    // Header
+    title: "气",
+    subtitle: "单页装订器",
     language: "语言",
 
-    // Navigation
-    page: "页面",
-    pages: "页面",
-    of: "共",
-    previous: "上一页",
-    next: "下一页",
+    // Main content
+    placeholder: "开始写作...",
+    wordCount: "字数",
+    characterCount: "字符数",
 
-    // Writing
-    startWriting: "开始写作... 所有内容都会自动保存到本地。",
-    startWritingTimestamps: "开始写作... 时间戳会在停顿后或双击回车时自动添加。按 Ctrl+T 手动插入。",
-    continueWriting: "继续写作...",
+    // Export options
+    export: "导出",
+    exportAs: "导出为",
+    exportTxt: "文本文件 (.txt)",
+    exportTxtDesc: "纯文本格式",
+    exportDocx: "Word文档 (.docx)",
+    exportDocxDesc: "Microsoft Word格式",
+    exportPdf: "PDF文档 (.pdf)",
+    exportPdfDesc: "便携式文档格式",
+    exportHtml: "HTML文件 (.html)",
+    exportHtmlDesc: "网页格式",
 
-    // Export
-    exportOptions: "导出选项",
-    exportAsTxt: "导出为 TXT",
-    exportAsTxtDesc: "纯文本格式，通用兼容性",
-    exportAsDocx: "导出为 DOCX",
-    exportAsDocxDesc: "Microsoft Word 格式，带格式",
-    exportAsPdf: "导出为 PDF",
-    exportAsPdfDesc: "打印就绪格式，打开打印对话框",
-    exportAsEpub: "导出为 EPUB",
-    exportAsEpubDesc: "电子书格式，适用于数字阅读器",
-    printDocument: "打印文档",
-    printDocumentDesc: "直接打印当前内容",
-    importFromFile: "从文件导入",
-    importFromFileDesc: "从 .txt 文件加载文本",
-
-    // Timestamps
+    // Timestamp options
+    timestamp: "添加时间戳",
     timestampFormat: "时间戳格式",
-    timestampFormats: {
-      datetime: "日期和时间",
-      date: "仅日期",
-      time: "仅时间",
-    },
+    timestampNone: "无",
+    timestampDate: "仅日期",
+    timestampTime: "仅时间",
+    timestampDateTime: "日期和时间",
+    timestampCustom: "自定义格式",
 
-    // Security
-    setPinTitle: "设置 4 位数字密码",
-    setPinDescription: "创建密码来锁定您的写作空间",
-    enterPinTitle: "输入密码",
-    enterPinDescription: "输入您的 4 位数字密码来解锁写作空间",
-    enterPin: "输入 4 位数字密码",
-    setPin: "设置密码",
-    unlock: "解锁",
+    // Navigation
+    about: "关于",
+    privacy: "隐私",
+    terms: "条款",
+    contact: "联系",
 
-    // Sharing
-    shareTitle: "分享 Qi",
-    shareDescription: "与他人分享这个安静的写作空间",
-    shareOnTwitter: "在 Twitter 上分享",
-    shareOnFacebook: "在 Facebook 上分享",
+    // About page
+    aboutTitle: "关于气",
+    aboutDescription: "气是一个极简主义的写作应用程序，专为专注和简洁而设计。在一个页面上写下所有内容，没有干扰。",
+    aboutFeatures: "功能特点",
+    aboutFeature1: "单页写作界面",
+    aboutFeature2: "实时字数和字符统计",
+    aboutFeature3: "多种导出格式",
+    aboutFeature4: "本地存储 - 您的数据保持私密",
+    aboutFeature5: "跨平台兼容性",
 
-    // Landing page
+    // Privacy Policy
     privacyTitle: "隐私政策",
+    privacyIntro: "您的隐私对我们很重要。气采用隐私优先的设计原则。",
+    privacyDataCollection: "数据收集",
+    privacyDataCollectionText: "我们不收集、存储或传输您的任何个人数据或写作内容。您写的所有内容都保留在您的设备上。",
+    privacyLocalStorage: "本地存储",
+    privacyLocalStorageText: "您的写作内容保存在浏览器的本地存储中。除非您明确导出，否则这些数据永远不会离开您的设备。",
+    privacyNoTracking: "无跟踪",
+    privacyNoTrackingText: "我们不使用分析、Cookie或任何跟踪机制。您的使用模式和行为完全私密。",
+    privacyOpenSource: "透明度",
+    privacyOpenSourceText: "气以透明为理念构建。您可以在我们的开源代码中查看数据处理方式。",
+
+    // Terms of Service
     termsTitle: "服务条款",
+    termsIntro: "使用气即表示您同意以下简单条款：",
+    termsUse: "服务使用",
+    termsUseText: "气按现状提供，用于个人和专业写作。请负责任地使用，并遵守适用法律。",
+    termsData: "您的数据",
+    termsDataText: "您保留对所创建内容的完全所有权。我们建议定期备份重要工作。",
+    termsLimitations: "服务限制",
+    termsLimitationsText: "虽然我们努力确保可靠性，但无法保证不间断服务。请始终备份重要内容。",
+    termsContact: "有疑问？",
+    termsContactText: "如果您对这些条款有疑问，请通过 overthinkr9@gmail.com 联系我们",
+
+    // Contact
     contactTitle: "联系我们",
     contactDescription: "有问题或反馈？我们很乐意听取您的意见。",
-    contactName: "姓名",
     contactEmail: "邮箱",
+    contactEmailPlaceholder: "your@email.com",
+    contactName: "姓名",
+    contactNamePlaceholder: "您的姓名",
     contactMessage: "消息",
+    contactMessagePlaceholder: "您的消息...",
     contactSend: "发送消息",
-    contactSuccess: "谢谢！您的消息已发送。",
+    contactSending: "发送中...",
+    contactSuccess: "消息发送成功！",
+    contactError: "发送消息失败。请重试。",
+    contactDirectEmail: "或直接发邮件至：",
 
-    // Privacy content
-    privacyContent: {
-      title: "您的隐私很重要",
-      subtitle: "我们相信您的写作应该保持私密和安全。",
-      localOnly: "仅本地存储",
-      localOnlyDesc: "您的所有写作都存储在您的设备本地。我们从不将您的内容发送到我们的服务器或云端。",
-      noTracking: "无跟踪",
-      noTrackingDesc: "我们不跟踪您的使用情况，不收集您的写作习惯分析，也不监控您的行为。",
-      noAccounts: "无需账户",
-      noAccountsDesc: "您无需创建账户、提供个人信息或注册任何内容。",
-      openSource: "开源",
-      openSourceDesc: "我们的代码是开源的，因此您可以验证我们如何处理您的数据和隐私。",
-      dataCollection: "我们不收集什么",
-      dataCollectionList: [
-        "您的写作内容或文档",
-        "个人信息或联系方式",
-        "使用模式或写作统计",
-        "用于跟踪的 Cookie",
-        "与第三方共享的任何数据",
-      ],
-      technical: "技术细节",
-      technicalList: [
-        "所有数据存储在浏览器的 localStorage 中",
-        "无服务器端内容存储",
-        "写作数据无网络请求",
-        "完全离线工作",
-        "数据从不离开您的设备",
-      ],
-    },
-
-    // Terms content
-    termsContent: {
-      title: "简单条款",
-      subtitle: "简单写作应用的清晰条款。",
-      acceptance: "使用 Qi 即表示您同意这些条款。如果您不同意，请不要使用该应用。",
-      service: "Qi 是一个极简主义的写作工具，将内容存储在您设备的本地。我们按原样提供，不提供保证。",
-      responsibilities: "您的责任",
-      responsibilitiesList: [
-        "备份您自己的写作 - 我们无法恢复丢失的数据",
-        "仅将应用用于合法、适当的内容",
-        "理解您保留对写作的完全所有权",
-        "如果选择使用锁定功能，请保护好您的密码",
-      ],
-      limitations: "限制",
-      limitationsList: [
-        "我们不保证应用始终可用",
-        "我们不对任何数据丢失负责",
-        "应用按原样提供，不提供任何形式的保证",
-        "我们可能偶尔更新这些条款",
-      ],
-      termination: "您可以随时停止使用 Qi。我们可能会提前通知终止服务。",
-      contact: "对这些条款有疑问？请联系我们：overthinkr9@gmail.com",
-    },
+    // Common
+    close: "关闭",
+    loading: "加载中...",
+    error: "错误",
+    success: "成功",
   },
 }
 
-export function getTranslation(language: Language, key: string): string {
-  const keys = key.split(".")
-  let value: any = translations[language]
-
-  for (const k of keys) {
-    if (value && typeof value === "object" && k in value) {
-      value = value[k]
-    } else {
-      // Fallback to English if key not found
-      value = translations.en
-      for (const fallbackKey of keys) {
-        if (value && typeof value === "object" && fallbackKey in value) {
-          value = value[fallbackKey]
-        } else {
-          return key // Return key if not found in fallback
-        }
-      }
-      break
-    }
-  }
-
-  return typeof value === "string" ? value : key
-}
+export type Language = keyof typeof translations
+export type TranslationKey = keyof typeof translations.en
