@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   DropdownMenu,
@@ -32,6 +33,11 @@ import {
   Home,
   BookOpen,
   SplitIcon as SinglePage,
+  Shield,
+  Scale,
+  Mail,
+  Send,
+  CheckCircle,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
@@ -54,8 +60,9 @@ export default function Qi() {
   const [showLanding, setShowLanding] = useState(true)
   const [copied, setCopied] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  const [showShortcutsDialog, setShowShortcutsDialog] = useState(false)
-  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false)
+  const [showTermsDialog, setShowTermsDialog] = useState(false)
+  const [showContactDialog, setShowContactDialog] = useState(false)
   const [exportFormat, setExportFormat] = useState<"txt" | "docx" | "pdf" | "epub">("txt")
   const [exportRange, setExportRange] = useState<"all" | "current" | "range">("all")
   const [exportStartPage, setExportStartPage] = useState(1)
@@ -69,6 +76,15 @@ export default function Qi() {
   const [isOffline, setIsOffline] = useState(false)
   const [showNativeFileSystem, setShowNativeFileSystem] = useState(false)
 
+  // Contact form state
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
+
   // Language state
   const [language, setLanguageState] = useState<Language>("en")
 
@@ -79,7 +95,7 @@ export default function Qi() {
     { id: "1", content: "", wordCount: 0 },
   ])
   const [currentPage, setCurrentPage] = useState(0)
-  const [currentBookPage, setCurrentBookPage] = useState(0) // For book view (shows pages currentBookPage and currentBookPage+1)
+  const [currentBookPage, setCurrentBookPage] = useState(0)
   const pageRefs = useRef<(HTMLTextAreaElement | null)[]>([])
 
   // Page size configurations
@@ -89,21 +105,21 @@ export default function Qi() {
       height: "297mm",
       wordsPerPage: 325,
       linesPerPage: 30,
-      className: "w-[800px] h-[1131px]", // A4 ratio scaled up for better screen viewing
+      className: "w-[800px] h-[1131px]",
     },
     Letter: {
       width: "8.5in",
       height: "11in",
       wordsPerPage: 300,
       linesPerPage: 28,
-      className: "w-[800px] h-[1035px]", // Letter ratio scaled up for better screen viewing
+      className: "w-[800px] h-[1035px]",
     },
     A5: {
       width: "148mm",
       height: "210mm",
       wordsPerPage: 200,
       linesPerPage: 22,
-      className: "w-[600px] h-[849px]", // A5 ratio scaled up for better screen viewing
+      className: "w-[600px] h-[849px]",
     },
   }
 
@@ -368,29 +384,8 @@ export default function Qi() {
 
   const handleExport = async (format: "txt" | "docx" | "pdf" | "epub" = "txt") => {
     const timestamp = new Date().toISOString().split("T")[0]
-
-    // Get content based on export range
-    let exportContent = ""
-    let exportPages: typeof pages = []
-
-    if (exportRange === "all") {
-      exportPages = pages
-      exportContent = pages.map((page) => page.content).join("\n\n--- Page Break ---\n\n")
-    } else if (exportRange === "current") {
-      exportPages = [pages[currentPage]]
-      exportContent = pages[currentPage]?.content || ""
-    } else if (exportRange === "range") {
-      const startIdx = Math.max(0, exportStartPage - 1)
-      const endIdx = Math.min(pages.length - 1, exportEndPage - 1)
-      exportPages = pages.slice(startIdx, endIdx + 1)
-      exportContent = exportPages
-        .map((page, idx) => `--- Page ${startIdx + idx + 1} ---\n\n${page.content}`)
-        .join("\n\n--- Page Break ---\n\n")
-    }
-
-    const totalWords = exportPages.reduce((sum, page) => sum + page.wordCount, 0)
     const bookTitle =
-      exportContent
+      content
         .split("\n")[0]
         ?.replace(/[^\w\s]/gi, "")
         .trim()
@@ -398,7 +393,7 @@ export default function Qi() {
 
     if (format === "txt") {
       const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.txt`
-      const txtContent = `${bookTitle}\n${"=".repeat(bookTitle.length)}\n\nExported from Qi - A quiet place to write\nDate: ${new Date().toLocaleDateString()}\nPages: ${exportPages.length}\nTotal Words: ${totalWords}\n\n${"-".repeat(50)}\n\n${exportContent}`
+      const txtContent = `${bookTitle}\n${"=".repeat(bookTitle.length)}\n\nExported from Qi - A quiet place to write\nDate: ${new Date().toLocaleDateString()}\nWords: ${countWords(content)}\n\n${"-".repeat(50)}\n\n${content}`
 
       try {
         const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8" })
@@ -413,85 +408,6 @@ export default function Qi() {
         URL.revokeObjectURL(url)
       } catch (error) {
         console.error("Export failed:", error)
-        const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(txtContent)
-        const downloadAnchorNode = document.createElement("a")
-        downloadAnchorNode.setAttribute("href", dataStr)
-        downloadAnchorNode.setAttribute("download", filename)
-        document.body.appendChild(downloadAnchorNode)
-        downloadAnchorNode.click()
-        downloadAnchorNode.remove()
-      }
-    } else if (format === "docx") {
-      try {
-        // Dynamic import to avoid SSR issues
-        const { exportToDocx } = await import("@/lib/docx-export")
-        const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.docx`
-        await exportToDocx(exportContent, filename)
-      } catch (error) {
-        console.error("DOCX export failed:", error)
-        // Fallback to HTML export
-        const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.html`
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <title>${bookTitle}</title>
-            <style>
-              @page {
-                size: ${pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : "A5"};
-                margin: 1in;
-              }
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                line-height: 1.6;
-                max-width: 8.5in;
-                margin: 0 auto;
-                padding: 1in;
-                white-space: pre-wrap;
-              }
-              h1 {
-                text-align: center;
-                border-bottom: 2px solid #333;
-                padding-bottom: 10px;
-                margin-bottom: 30px;
-              }
-              .page-break {
-                page-break-before: always;
-                border-top: 1px dashed #ccc;
-                padding-top: 20px;
-                margin-top: 20px;
-              }
-              .metadata {
-                font-size: 0.9em;
-                color: #666;
-                margin-bottom: 30px;
-                text-align: center;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>${bookTitle}</h1>
-            <div class="metadata">
-              Exported from Qi - A quiet place to write<br>
-              Date: ${new Date().toLocaleDateString()}<br>
-              Pages: ${exportPages.length} | Words: ${totalWords}
-            </div>
-            <div>${exportContent.replace(/--- Page Break ---/g, '<div class="page-break"></div>').replace(/\n/g, "<br>")}</div>
-          </body>
-          </html>
-        `
-
-        const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = filename
-        a.style.display = "none"
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
       }
     }
   }
@@ -545,7 +461,6 @@ export default function Qi() {
   }
 
   const handleShare = async () => {
-    // Check if Web Share API is available and allowed
     if (navigator.share && window.isSecureContext) {
       try {
         await navigator.share({
@@ -554,12 +469,10 @@ export default function Qi() {
           url: window.location.href,
         })
       } catch (error) {
-        // User cancelled or sharing failed, fall back to share dialog
         console.log("Share cancelled or failed:", error)
         setShowShareDialog(true)
       }
     } else {
-      // Web Share API not available, use fallback dialog
       setShowShareDialog(true)
     }
   }
@@ -574,6 +487,29 @@ export default function Qi() {
     }
   }
 
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    // Simulate form submission (replace with actual form handling)
+    try {
+      // In a real app, you'd send this to your backend or a service like Formspree
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      setSubmitSuccess(true)
+      setContactForm({ name: "", email: "", message: "" })
+
+      setTimeout(() => {
+        setSubmitSuccess(false)
+        setShowContactDialog(false)
+      }, 2000)
+    } catch (error) {
+      console.error("Failed to submit form:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   if (!mounted) {
     return null
   }
@@ -581,36 +517,275 @@ export default function Qi() {
   // Landing Page - Simple White Design
   if (showLanding) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="text-center space-y-8 max-w-md w-full">
-          {/* Logo and Title */}
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <img
-                src="/qilogo.png"
-                alt="Qi Logo"
-                className="h-16 w-auto max-w-16"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none"
-                  const fallback = document.createElement("h1")
-                  fallback.textContent = getTranslation(language, "appName")
-                  fallback.className = "text-4xl font-light text-black tracking-wide"
-                  e.currentTarget.parentNode?.appendChild(fallback)
-                }}
-              />
-            </div>
-            <p className="text-lg text-gray-500 font-light">{getTranslation(language, "tagline")}</p>
+      <div className="min-h-screen bg-white flex flex-col">
+        {/* Header */}
+        <header className="p-6 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <img
+              src="/qilogo.png"
+              alt="Qi Logo"
+              className="h-8 w-auto"
+              onError={(e) => {
+                e.currentTarget.style.display = "none"
+              }}
+            />
+            <span className="text-xl font-bold text-black">{getTranslation(language, "appName")}</span>
           </div>
 
-          {/* Enter Button */}
-          <Button
-            onClick={handleEnterQi}
-            className="bg-black hover:bg-gray-900 text-white px-8 py-3 text-base font-normal rounded-none transition-colors duration-200 border border-black"
-            size="lg"
-          >
-            {getTranslation(language, "enter")}
-          </Button>
-        </div>
+          <div className="flex items-center space-x-4">
+            <select
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value as Language)}
+              className="px-3 py-1 text-sm bg-white border border-gray-300 rounded"
+            >
+              <option value="en">{getTranslation(language, "english")}</option>
+              <option value="zh">{getTranslation(language, "chinese")}</option>
+            </select>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center space-y-8 max-w-md w-full">
+            {/* Logo and Title */}
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <img
+                  src="/qilogo.png"
+                  alt="Qi Logo"
+                  className="h-16 w-auto max-w-16"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none"
+                    const fallback = document.createElement("h1")
+                    fallback.textContent = getTranslation(language, "appName")
+                    fallback.className = "text-4xl font-light text-black tracking-wide"
+                    e.currentTarget.parentNode?.appendChild(fallback)
+                  }}
+                />
+              </div>
+              <p className="text-lg text-gray-500 font-light">{getTranslation(language, "tagline")}</p>
+            </div>
+
+            {/* Enter Button */}
+            <Button
+              onClick={handleEnterQi}
+              className="bg-black hover:bg-gray-900 text-white px-8 py-3 text-base font-normal rounded-none transition-colors duration-200 border border-black"
+              size="lg"
+            >
+              {getTranslation(language, "enter")}
+            </Button>
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="p-6 border-t border-gray-200">
+          <div className="flex justify-center space-x-8 text-sm text-gray-600">
+            <button onClick={() => setShowPrivacyDialog(true)} className="hover:text-black transition-colors">
+              {getTranslation(language, "privacyTitle")}
+            </button>
+            <button onClick={() => setShowTermsDialog(true)} className="hover:text-black transition-colors">
+              {getTranslation(language, "termsTitle")}
+            </button>
+            <button onClick={() => setShowContactDialog(true)} className="hover:text-black transition-colors">
+              {getTranslation(language, "contactTitle")}
+            </button>
+          </div>
+        </footer>
+
+        {/* Privacy Dialog */}
+        <Dialog open={showPrivacyDialog} onOpenChange={setShowPrivacyDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Shield className="w-5 h-5" />
+                <span>{getTranslation(language, "privacyContent.title")}</span>
+              </DialogTitle>
+              <DialogDescription>{getTranslation(language, "privacyContent.subtitle")}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Key Principles */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2 p-4 bg-green-50 rounded-lg">
+                  <h4 className="font-semibold text-green-800">
+                    {getTranslation(language, "privacyContent.localOnly")}
+                  </h4>
+                  <p className="text-sm text-green-700">{getTranslation(language, "privacyContent.localOnlyDesc")}</p>
+                </div>
+                <div className="space-y-2 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-semibold text-blue-800">
+                    {getTranslation(language, "privacyContent.noTracking")}
+                  </h4>
+                  <p className="text-sm text-blue-700">{getTranslation(language, "privacyContent.noTrackingDesc")}</p>
+                </div>
+                <div className="space-y-2 p-4 bg-purple-50 rounded-lg">
+                  <h4 className="font-semibold text-purple-800">
+                    {getTranslation(language, "privacyContent.noAccounts")}
+                  </h4>
+                  <p className="text-sm text-purple-700">{getTranslation(language, "privacyContent.noAccountsDesc")}</p>
+                </div>
+                <div className="space-y-2 p-4 bg-amber-50 rounded-lg">
+                  <h4 className="font-semibold text-amber-800">
+                    {getTranslation(language, "privacyContent.openSource")}
+                  </h4>
+                  <p className="text-sm text-amber-700">{getTranslation(language, "privacyContent.openSourceDesc")}</p>
+                </div>
+              </div>
+
+              {/* What We Don't Collect */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">{getTranslation(language, "privacyContent.dataCollection")}</h4>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  {getTranslation(language, "privacyContent.dataCollectionList")
+                    .split(",")
+                    .map((item: string, index: number) => (
+                      <li key={index} className="flex items-start space-x-2">
+                        <span className="text-red-500 mt-1">•</span>
+                        <span>{item.trim()}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+
+              {/* Technical Details */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">{getTranslation(language, "privacyContent.technical")}</h4>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  {getTranslation(language, "privacyContent.technicalList")
+                    .split(",")
+                    .map((item: string, index: number) => (
+                      <li key={index} className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-1">•</span>
+                        <span>{item.trim()}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Terms Dialog */}
+        <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Scale className="w-5 h-5" />
+                <span>{getTranslation(language, "termsContent.title")}</span>
+              </DialogTitle>
+              <DialogDescription>{getTranslation(language, "termsContent.subtitle")}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Acceptance */}
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">{getTranslation(language, "termsContent.acceptance")}</p>
+              </div>
+
+              {/* Service Description */}
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">{getTranslation(language, "termsContent.service")}</p>
+              </div>
+
+              {/* Responsibilities */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">{getTranslation(language, "termsContent.responsibilities")}</h4>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  {getTranslation(language, "termsContent.responsibilitiesList")
+                    .split(",")
+                    .map((item: string, index: number) => (
+                      <li key={index} className="flex items-start space-x-2">
+                        <span className="text-blue-500 mt-1">•</span>
+                        <span>{item.trim()}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+
+              {/* Limitations */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">{getTranslation(language, "termsContent.limitations")}</h4>
+                <ul className="space-y-1 text-sm text-gray-600">
+                  {getTranslation(language, "termsContent.limitationsList")
+                    .split(",")
+                    .map((item: string, index: number) => (
+                      <li key={index} className="flex items-start space-x-2">
+                        <span className="text-amber-500 mt-1">•</span>
+                        <span>{item.trim()}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+
+              {/* Termination & Contact */}
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">{getTranslation(language, "termsContent.termination")}</p>
+                <p className="text-sm text-gray-600">{getTranslation(language, "termsContent.contact")}</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Contact Dialog */}
+        <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Mail className="w-5 h-5" />
+                <span>{getTranslation(language, "contactTitle")}</span>
+              </DialogTitle>
+              <DialogDescription>{getTranslation(language, "contactDescription")}</DialogDescription>
+            </DialogHeader>
+
+            {submitSuccess ? (
+              <div className="text-center py-8 space-y-4">
+                <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
+                <p className="text-green-600 font-medium">{getTranslation(language, "contactSuccess")}</p>
+              </div>
+            ) : (
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                <div>
+                  <Input
+                    placeholder={getTranslation(language, "contactName")}
+                    value={contactForm.name}
+                    onChange={(e) => setContactForm((prev) => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Input
+                    type="email"
+                    placeholder={getTranslation(language, "contactEmail")}
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm((prev) => ({ ...prev, email: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Textarea
+                    placeholder={getTranslation(language, "contactMessage")}
+                    value={contactForm.message}
+                    onChange={(e) => setContactForm((prev) => ({ ...prev, message: e.target.value }))}
+                    rows={4}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Sending...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <Send className="w-4 h-4" />
+                      <span>{getTranslation(language, "contactSend")}</span>
+                    </div>
+                  )}
+                </Button>
+                <p className="text-xs text-gray-500 text-center">Or email us directly at: overthinkr9@gmail.com</p>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
