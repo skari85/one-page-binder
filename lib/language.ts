@@ -1,27 +1,59 @@
 "use client"
 
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
 import { translations, type Language } from "./translations"
 
-interface LanguageStore {
-  language: Language
-  setLanguage: (language: Language) => void
-  t: (key: keyof typeof translations.en) => string
+export function getLanguage(): Language {
+  if (typeof window === "undefined") return "en"
+
+  const saved = localStorage.getItem("qi-language")
+  if (saved && (saved === "en" || saved === "zh")) {
+    return saved as Language
+  }
+
+  // Detect browser language
+  const browserLang = navigator.language.toLowerCase()
+  if (browserLang.startsWith("zh")) {
+    return "zh"
+  }
+
+  return "en"
 }
 
-export const useLanguage = create<LanguageStore>()(
-  persist(
-    (set, get) => ({
-      language: "en",
-      setLanguage: (language: Language) => set({ language }),
-      t: (key: keyof typeof translations.en) => {
-        const { language } = get()
-        return translations[language][key] || translations.en[key] || key
-      },
-    }),
-    {
-      name: "qi-language",
-    },
-  ),
-)
+export function setLanguage(language: Language) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("qi-language", language)
+  }
+}
+
+export function useLanguage() {
+  const [language, setLanguageState] = useState<Language>("en")
+
+  useEffect(() => {
+    setLanguageState(getLanguage())
+  }, [])
+
+  const handleSetLanguage = (newLanguage: Language) => {
+    setLanguageState(newLanguage)
+    setLanguage(newLanguage)
+  }
+
+  const t = (key: string) => {
+    const keys = key.split(".")
+    let value: any = translations[language]
+
+    for (const k of keys) {
+      value = value?.[k]
+    }
+
+    return value || key
+  }
+
+  return {
+    language,
+    setLanguage: handleSetLanguage,
+    t,
+  }
+}
+
+// Import React hooks
+import { useState, useEffect } from "react"

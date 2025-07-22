@@ -18,16 +18,29 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Qi - One Page Binder",
-  description: "A simple, elegant writing app that keeps everything on one page",
-  manifest: "/manifest.json",
-  icons: {
-    icon: [
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-    ],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  title: "Qi - A quiet place to write",
+  description: "A minimalist writing app that stores everything locally. No cloud, no tracking, just writing.",
+  keywords: ["writing", "notes", "privacy", "local storage", "minimalist"],
+  authors: [{ name: "Qi Team" }],
+  creator: "Qi Team",
+  publisher: "Qi Team",
+  robots: "index, follow",
+  openGraph: {
+    title: "Qi - A quiet place to write",
+    description: "A minimalist writing app that stores everything locally. No cloud, no tracking, just writing.",
+    type: "website",
+    locale: "en_US",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Qi - A quiet place to write",
+    description: "A minimalist writing app that stores everything locally. No cloud, no tracking, just writing.",
+  },
+  viewport: "width=device-width, initial-scale=1",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "white" },
+    { media: "(prefers-color-scheme: dark)", color: "black" },
+  ],
     generator: 'v0.dev'
 }
 
@@ -38,14 +51,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geist.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+      <body className={`${geist.variable} ${geistMono.variable} antialiased`}>
         <Suspense fallback={null}>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             {children}
             <Toaster />
           </ThemeProvider>
+          <Analytics />
         </Suspense>
-        <Analytics />
       </body>
     </html>
   )
