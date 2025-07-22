@@ -219,13 +219,13 @@ export const translations = {
     exercises: {
       rightNow: {
         title: "现在我注意到…",
-        prompt: "完成这个句子"现在我注意到…"三次。不要过度思考。",
+        prompt: "完成这个句子\"现在我注意到…\"三次。不要过度思考。",
         icon: "🧘",
         category: "接地气 + 表达性"
       },
       todayOnly: {
         title: "写一句只有今天才会发生的话。",
-        prompt: \"回顾你今天到目前为止的经历。什么事情只有今天才会发生？用一句话记录下来。",
+        prompt: "回顾你今天到目前为止的经历。什么事情只有今天才会发生？用一句话记录下来。",
         icon: "📅",
         category: "时间锚定 + 创意记忆"
       },
@@ -233,11 +233,11 @@ export const translations = {
         title: "选择你附近的一个物体。它今天看到了什么？",
         prompt: "选择附近的某样东西。从它的角度讲述一个时刻。",
         icon: "🪞",
-        category: \"视角转换 + 想象力入口"
+        category: "视角转换 + 想象力入口"
       },
       colorFeeling: {
         title: "写一句话，把感觉和颜色互换。",
-        prompt: "例如：\"她离开了，房间变成了蓝色。"现在试试你自己的。",
+        prompt: "例如：\"她离开了，房间变成了蓝色。\" 现在试试你自己的。",
         icon: "🎨",
         category: "隐喻训练 + 情感解锁"
       },
@@ -251,14 +251,14 @@ export const translations = {
 
     // Export functionality
     export: "导出",
-    exportAs: \"导出为",
-    exportOptions: "导出选项",\
+    exportAs: "导出为",
+    exportOptions: "导出选项",
     exportAsTxt: "导出为文本",
     exportAsTxtDesc: "纯文本文件 (.txt)",
     exportAsDocx: "导出为Word",
     exportAsDocxDesc: "Microsoft Word文档 (.docx)",
-    exportPdf: \"导出为PDF",\
-    exportPdfDesc: \"便携式文档格式 (.pdf)",
+    exportPdf: "导出为PDF",
+    exportPdfDesc: "便携式文档格式 (.pdf)",
     exportHtml: "导出为HTML",
     exportHtmlDesc: "网页格式 (.html)",
     printDocument: "打印文档",
@@ -273,19 +273,19 @@ export const translations = {
       date: "仅日期",
       time: "仅时间",
     },
-    timestampNone: "无时间戳",\
-    timestampDate: "仅日期\",\
-    timestampTime: "仅时间",\
+    timestampNone: "无时间戳",
+    timestampDate: "仅日期",
+    timestampTime: "仅时间",
     timestampDateTime: "日期和时间",
 
     // PIN/Lock functionality
     setPinTitle: "设置密码",
     setPinDescription: "设置4位数字密码来锁定你的写作空间",
     enterPinTitle: "输入密码",
-    enterPinDescription: \"输入你的4位数字密码来解锁",\
-    enterPin: \"输入密码",\
+    enterPinDescription: "输入你的4位数字密码来解锁",
+    enterPin: "输入密码",
     setPin: "设置密码",
-    unlock: "解锁\",
+    unlock: "解锁",
 
     // Share functionality
     shareTitle: "分享气",
@@ -303,30 +303,27 @@ export const translations = {
     aboutFeature3: "支持多种格式导出（TXT、DOCX、PDF、HTML）",
     aboutFeature4: "自动时间戳和字数统计",
     aboutFeature5: "简洁、无干扰的界面",
-\
+
     // Privacy Policy
-    privacy: "隐私",\
-    privacyTitle: "隐私政策",\
-    privacyIntro: \"你的隐私是我们的首要任务。以下是我们如何保护它：",
-    privacyContent:
-{
-  \
+    privacy: "隐私",
+    privacyTitle: "隐私政策",
+    privacyIntro: "你的隐私是我们的首要任务。以下是我们如何保护它：",
+    privacyContent: {
       title: "隐私政策",
       subtitle: "你的隐私是我们的首要任务。以下是我们如何保护它：",
       localOnly: "仅本地存储",
-      localOnlyDesc: "你的所有写作内容都保留在你的设备上。我们永远不会看到或存储你的内容。",\
+      localOnlyDesc: "你的所有写作内容都保留在你的设备上。我们永远不会看到或存储你的内容。",
       noTracking: "无跟踪",
-      noTrackingDesc: \"我们不使用分析、Cookie或任何跟踪技术。\",\
+      noTrackingDesc: "我们不使用分析、Cookie或任何跟踪技术。",
       noAccounts: "无需账户",
-      noAccountsDesc: \"无需注册，永远不收集个人信息。",
-      openSource: "开源",\
+      noAccountsDesc: "无需注册，永远不收集个人信息。",
+      openSource: "开源",
       openSourceDesc: "我们的代码是透明的，可供审查。",
       dataCollection: "我们不收集的内容",
       dataCollectionList: "个人信息，写作内容，使用分析，Cookie或跟踪数据，IP地址，设备信息",
       technical: "技术细节",
       technicalList: "数据仅存储在浏览器localStorage中，无服务器端存储，无第三方集成，完全离线工作，你完全控制你的数据",
-}
-,
+    },
     privacyDataCollection: "数据收集",
     privacyDataCollectionText: "我们不收集任何个人数据、写作内容或使用分析。一切都保留在你的设备上。",
     privacyLocalStorage: "本地存储",
@@ -340,10 +337,9 @@ export const translations = {
     terms: "条款",
     termsTitle: "服务条款",
     termsIntro: "使用气的简单条款：",
-    termsContent:
-{
-  title: "服务条款", subtitle
-  : "使用气的简单条款：",
+    termsContent: {
+      title: "服务条款",
+      subtitle: "使用气的简单条款：",
       acceptance: "使用气即表示你同意这些条款。气是一个免费的写作应用，所有数据都本地存储在你的设备上。",
       service: "气提供简单、注重隐私的写作环境。你的所有内容都保留在你的设备上，由你控制。",
       responsibilities: "你的责任",
@@ -352,9 +348,8 @@ export const translations = {
       limitationsList: "我们按'现状'提供应用，不提供保证，本地存储可能有浏览器限制，我们不对数据丢失负责，服务可能会更新或停止",
       termination: "你可以随时停止使用气。你的本地数据将保留在你的设备上，直到你清除它。",
       contact: "对这些条款有疑问？请联系我们：overthinkr9@gmail.com",
-}
-,
-    termsUse: "服务使用",\
+    },
+    termsUse: "服务使用",
     termsUseText: "气免费提供个人和商业使用。你保留对内容的完全所有权。",
     termsData: "你的数据",
     termsDataText: "所有数据都本地存储在你的设备上。你有责任备份重要内容。",
@@ -371,7 +366,7 @@ export const translations = {
     contactNamePlaceholder: "你的姓名",
     contactEmail: "邮箱",
     contactEmailPlaceholder: "your@email.com",
-    contactMessage: "消息",\
+    contactMessage: "消息",
     contactMessagePlaceholder: "告诉我们你的想法...",
     contactSend: "发送消息",
     contactSending: "发送中...",
@@ -384,11 +379,11 @@ export const translations = {
 
 export function getTranslation(language: Language, key: string): string {
   const keys = key.split(".")
-  let value: any = translations[language]
+  let value: unknown = translations[language]
 
   for (const k of keys) {
-    value = value?.[k]
+    value = (value as Record<string, unknown>)?.[k]
   }
 
-  return value || key
+  return (value as string) || key
 }

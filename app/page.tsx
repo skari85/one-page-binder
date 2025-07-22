@@ -225,9 +225,9 @@ export default function WritingApp() {
   }
 
   const handleExerciseClick = (exerciseKey: string) => {
-    const exercise = t(`exercises.${exerciseKey}`)
-    if (typeof exercise === "object" && exercise.prompt) {
-      setContent(exercise.prompt + "\n\n")
+    const exercisePrompt = t(`exercises.${exerciseKey}.prompt`)
+    if (exercisePrompt && exercisePrompt !== `exercises.${exerciseKey}.prompt`) {
+      setContent(exercisePrompt + "\n\n")
       textareaRef.current?.focus()
       track("exercise_used", { exercise: exerciseKey })
     }
@@ -302,8 +302,12 @@ export default function WritingApp() {
                 <DropdownMenuLabel>{t("focusExercises")}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {exerciseKeys.map((key) => {
-                  const exercise = t(`exercises.${key}`)
-                  if (typeof exercise === "object") {
+                  const exerciseTitle = t(`exercises.${key}.title`)
+                  const exercisePrompt = t(`exercises.${key}.prompt`)
+                  const exerciseIcon = t(`exercises.${key}.icon`)
+                  const exerciseCategory = t(`exercises.${key}.category`)
+                  
+                  if (exerciseTitle && exerciseTitle !== `exercises.${key}.title`) {
                     return (
                       <DropdownMenuItem
                         key={key}
@@ -311,12 +315,12 @@ export default function WritingApp() {
                         className="flex flex-col items-start space-y-1 p-3 cursor-pointer"
                       >
                         <div className="flex items-center space-x-2">
-                          <span className="text-lg">{exercise.icon}</span>
-                          <span className="font-medium text-sm">{exercise.title}</span>
+                          <span className="text-lg">{exerciseIcon}</span>
+                          <span className="font-medium text-sm">{exerciseTitle}</span>
                         </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{exercise.prompt}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{exercisePrompt}</p>
                         <Badge variant="outline" className="text-xs">
-                          {exercise.category}
+                          {exerciseCategory}
                         </Badge>
                       </DropdownMenuItem>
                     )
@@ -503,18 +507,21 @@ export default function WritingApp() {
                   <div className="space-y-2 flex-1">
                     <p className="text-sm text-slate-600 dark:text-slate-400">{t("tryThis")}</p>
                     {(() => {
-                      const exercise = t(`exercises.${currentExercise}`)
-                      if (typeof exercise === "object") {
+                      const exerciseTitle = t(`exercises.${currentExercise}.title`)
+                      const exercisePrompt = t(`exercises.${currentExercise}.prompt`)
+                      const exerciseIcon = t(`exercises.${currentExercise}.icon`)
+                      
+                      if (exerciseTitle && exerciseTitle !== `exercises.${currentExercise}.title`) {
                         return (
                           <div className="cursor-pointer group" onClick={() => handleExerciseClick(currentExercise)}>
                             <div className="flex items-center space-x-2 mb-1">
-                              <span className="text-lg">{exercise.icon}</span>
+                              <span className="text-lg">{exerciseIcon}</span>
                               <span className="font-medium text-sm group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                                {exercise.title}
+                                {exerciseTitle}
                               </span>
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                              {exercise.prompt}
+                              {exercisePrompt}
                             </p>
                           </div>
                         )

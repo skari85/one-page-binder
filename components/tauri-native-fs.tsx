@@ -8,12 +8,20 @@ import { Badge } from './ui/badge';
 import { isTauri } from '@/lib/tauri-api';
 import { HardDrive, AlertCircle } from 'lucide-react';
 
-export function TauriNativeFS() {
-  const [content, setContent] = useState<string>('');
+interface TauriNativeFSProps {
+  content: string;
+  onContentChange: (content: string) => void;
+}
+
+export function TauriNativeFS({ content, onContentChange }: TauriNativeFSProps) {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<any>(null);
+  const [metadata, setMetadata] = useState<{
+    size?: number;
+    modified?: number;
+    created?: number;
+  } | null>(null);
 
   // Check if we're running in a Tauri environment
   const [isTauriEnv, setIsTauriEnv] = useState(false);
@@ -33,7 +41,7 @@ export function TauriNativeFS() {
       setError(null);
 
       // Use Tauri's dialog API to get a save path
-      // @ts-ignore - Tauri types may not be available
+      // @ts-expect-error - Tauri types may not be available
       const savePath = await window.__TAURI__.dialog.save({
         filters: [
           { name: 'Text Files', extensions: ['txt'] },
@@ -49,7 +57,7 @@ export function TauriNativeFS() {
       setStatus(`Saving to ${savePath}...`);
       
       // Use our custom Rust command to write the file
-      // @ts-ignore - Tauri types may not be available
+      // @ts-expect-error - Tauri types may not be available
       await window.__TAURI__.invoke('write_file_content', { 
         path: savePath, 
         content 
@@ -78,7 +86,7 @@ export function TauriNativeFS() {
       setError(null);
 
       // Use Tauri's dialog API to get a file path
-      // @ts-ignore - Tauri types may not be available
+      // @ts-expect-error - Tauri types may not be available
       const selected = await window.__TAURI__.dialog.open({
         multiple: false,
         filters: [
@@ -96,12 +104,12 @@ export function TauriNativeFS() {
       setStatus(`Opening ${openPath}...`);
       
       // Use our custom Rust command to read the file
-      // @ts-ignore - Tauri types may not be available
+      // @ts-expect-error - Tauri types may not be available
       const fileContent = await window.__TAURI__.invoke('read_file_content', { 
         path: openPath 
       });
       
-      setContent(fileContent as string);
+      onContentChange(fileContent as string);
       setFilePath(openPath);
       setStatus(`File opened from: ${openPath}`);
       
@@ -118,7 +126,7 @@ export function TauriNativeFS() {
     if (!isTauriEnv) return;
     
     try {
-      // @ts-ignore - Tauri types may not be available
+      // @ts-expect-error - Tauri types may not be available
       const meta = await window.__TAURI__.invoke('get_file_metadata', { path });
       setMetadata(meta);
     } catch (err) {
@@ -179,7 +187,7 @@ export function TauriNativeFS() {
             placeholder="Enter text to save to a file..."
             className="min-h-[200px]"
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => onContentChange(e.target.value)}
           />
           
           {filePath && (
@@ -203,7 +211,7 @@ export function TauriNativeFS() {
           {metadata && (
             <div className="p-3 bg-muted/50 rounded-md text-sm space-y-1">
               <div className="font-medium">File Metadata:</div>
-              <div>Size: {formatSize(metadata.size)}</div>
+              {metadata.size && <div>Size: {formatSize(metadata.size)}</div>}
               {metadata.modified && <div>Modified: {formatDate(metadata.modified)}</div>}
               {metadata.created && <div>Created: {formatDate(metadata.created)}</div>}
             </div>
