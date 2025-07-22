@@ -1,206 +1,396 @@
-export type Language = 'en' | 'zh'
+export type Language = "en" | "zh"
 
 export const translations = {
   en: {
-    // Landing page
-    appName: 'Qi',
-    tagline: 'A quiet place to write.',
-    enter: 'Enter',
-    
-    // Welcome screen
-    welcomeTitle: 'Qi',
-    welcomeSubtitle: 'A quiet place to write',
-    welcomeFeatures: {
-      local: 'Everything saves locally',
-      noCloud: 'No cloud, no tracking',
-      noDistraction: 'Zero distractions'
+    // App basics
+    appName: "Qi",
+    tagline: "A quiet place to write",
+    title: "Qi",
+    subtitle: "A quiet place to write",
+    enter: "Enter",
+    language: "Language",
+    english: "English",
+    chinese: "中文",
+
+    // Writing interface
+    startWriting: "Start writing...",
+    startWritingTimestamps: "Start writing... (Ctrl/Cmd+T for timestamp)",
+    wordCount: "words",
+    characterCount: "characters",
+    placeholder: "Start writing your thoughts here...",
+
+    // Focus exercises
+    focus: "Focus",
+    focusExercises: "Focus Exercises",
+    tryThis: "Try this:",
+    exercises: {
+      rightNow: {
+        title: "Right now I notice…",
+        prompt: "Complete the phrase \"Right now I notice…\" three times. Don't overthink it.",
+        icon: "🧘",
+        category: "Grounding + expressive"
+      },
+      todayOnly: {
+        title: "Write one sentence that could only happen today.",
+        prompt: "Look at your day so far. What happened that could only happen today? Capture it in a sentence.",
+        icon: "📅",
+        category: "Time anchoring + creative memory"
+      },
+      objectView: {
+        title: "Choose an object near you. What has it seen today?",
+        prompt: "Pick something nearby. Tell a moment from its point of view.",
+        icon: "🪞",
+        category: "Perspective shift + imaginative entry"
+      },
+      colorFeeling: {
+        title: "Write a sentence where you swap a feeling with a color.",
+        prompt: "Example: \"She left and the room turned blue.\" Now try your own.",
+        icon: "🎨",
+        category: "Metaphor training + emotion unlocking"
+      },
+      tenWords: {
+        title: "Tell me something true in exactly ten words.",
+        prompt: "Use exactly 10 words. Make them count. It can be funny, deep, or simple.",
+        icon: "🧠",
+        category: "Constraint-driven flow + honesty"
+      }
     },
-    welcomeMessage: 'Welcome to Qi',
-    welcomeEnter: 'Enter below',
-    enterQi: 'Enter Qi',
-    lightMode: 'Light Mode',
-    darkMode: 'Dark Mode',
-    
-    // Lock screen
-    locked: 'Your writing space is locked',
-    unlock: 'Unlock',
-    
-    // Header
-    saving: 'Saving...',
-    offline: 'Offline',
-    
-    // Tooltips
-    goToLanding: 'Go to landing page',
-    singlePageView: 'Single page view',
-    bookView: 'Book view (dual pages)',
-    pageSize: 'Page size',
-    nativeFileSystem: 'Native file system',
-    toggleTheme: 'Toggle theme',
-    shareApp: 'Share app',
-    saveAsTxt: 'Save as TXT',
-    saveAsDocx: 'Save as DOCX',
-    importFromFile: 'Import from file',
-    print: 'Print',
-    toggleTimestamps: 'Toggle automatic timestamps',
-    timestampFormat: 'Timestamp format',
-    lockWritingSpace: 'Lock writing space',
-    
-    // Page navigation
-    page: 'Page',
-    of: 'of',
-    pages: 'Pages',
-    previous: 'Previous',
-    next: 'Next',
-    words: 'words',
-    
-    // Placeholders
-    startWriting: 'Start writing... Everything auto-saves locally.',
-    startWritingTimestamps: 'Start writing... Timestamps will be added automatically after breaks or double-enter. Press Ctrl+T to insert manually.',
-    continueWriting: 'Continue writing...',
-    
-    // PIN dialogs
-    setPinTitle: 'Set 4-Digit PIN',
-    setPinDescription: 'Create a PIN to lock your writing space',
-    enterPinTitle: 'Enter PIN',
-    enterPinDescription: 'Enter your 4-digit PIN to unlock your writing space',
-    enterPin: 'Enter 4-digit PIN',
-    setPin: 'Set PIN',
-    
-    // Share dialog
-    shareTitle: 'Share Qi',
-    shareDescription: 'Share this quiet place to write with others',
-    shareOnTwitter: 'Share on Twitter',
-    shareOnFacebook: 'Share on Facebook',
-    
-    // Export
-    exportedFrom: 'Exported from Qi - A quiet place to write',
-    date: 'Date',
-    totalWords: 'Total Words',
-    
-    // Timestamp formats
+
+    // Export functionality
+    export: "Export",
+    exportAs: "Export as",
+    exportOptions: "Export Options",
+    exportAsTxt: "Export as Text",
+    exportAsTxtDesc: "Plain text file (.txt)",
+    exportAsDocx: "Export as Word",
+    exportAsDocxDesc: "Microsoft Word document (.docx)",
+    exportPdf: "Export as PDF",
+    exportPdfDesc: "Portable Document Format (.pdf)",
+    exportHtml: "Export as HTML",
+    exportHtmlDesc: "Web page format (.html)",
+    printDocument: "Print Document",
+    printDocumentDesc: "Print or save as PDF",
+    importFromFile: "Import from File",
+    importFromFileDesc: "Load text from file (.txt)",
+
+    // Timestamp functionality
+    timestampFormat: "Timestamp Format",
     timestampFormats: {
-      datetime: 'Date & Time',
-      date: 'Date Only',
-      time: 'Time Only'
+      datetime: "Date & Time",
+      date: "Date Only",
+      time: "Time Only",
     },
-    
-    // Page sizes
-    pageSizes: {
-      A4: 'A4',
-      Letter: 'Letter',
-      A5: 'A5'
+    timestampNone: "No timestamp",
+    timestampDate: "Date only",
+    timestampTime: "Time only",
+    timestampDateTime: "Date & time",
+
+    // PIN/Lock functionality
+    setPinTitle: "Set PIN",
+    setPinDescription: "Set a 4-digit PIN to lock your writing space",
+    enterPinTitle: "Enter PIN",
+    enterPinDescription: "Enter your 4-digit PIN to unlock",
+    enterPin: "Enter PIN",
+    setPin: "Set PIN",
+    unlock: "Unlock",
+
+    // Share functionality
+    shareTitle: "Share Qi",
+    shareDescription: "Share this writing app with others",
+    shareOnTwitter: "Share on Twitter",
+    shareOnFacebook: "Share on Facebook",
+
+    // About section
+    about: "About",
+    aboutTitle: "About Qi",
+    aboutDescription: "A minimalist writing application focused on privacy and simplicity.",
+    aboutFeatures: "Key Features:",
+    aboutFeature1: "Everything saves locally in your browser",
+    aboutFeature2: "No accounts, no cloud storage, no tracking",
+    aboutFeature3: "Export to multiple formats (TXT, DOCX, PDF, HTML)",
+    aboutFeature4: "Automatic timestamps and word counting",
+    aboutFeature5: "Clean, distraction-free interface",
+
+    // Privacy Policy
+    privacy: "Privacy",
+    privacyTitle: "Privacy Policy",
+    privacyIntro: "Your privacy is our top priority. Here's how we protect it:",
+    privacyContent: {
+      title: "Privacy Policy",
+      subtitle: "Your privacy is our top priority. Here's how we protect it:",
+      localOnly: "Local Storage Only",
+      localOnlyDesc: "All your writing stays on your device. We never see or store your content.",
+      noTracking: "No Tracking",
+      noTrackingDesc: "We don't use analytics, cookies, or any tracking technologies.",
+      noAccounts: "No Accounts Required",
+      noAccountsDesc: "No sign-ups, no personal information collected, ever.",
+      openSource: "Open Source",
+      openSourceDesc: "Our code is transparent and available for review.",
+      dataCollection: "What We Don't Collect",
+      dataCollectionList:
+        "Personal information, Writing content, Usage analytics, Cookies or tracking data, IP addresses, Device information",
+      technical: "Technical Details",
+      technicalList:
+        "Data stored in browser localStorage only, No server-side storage, No third-party integrations, Works completely offline, You control your data entirely",
     },
-    
-    // Language
-    language: 'Language',
-    english: 'English',
-    chinese: '中文'
+    privacyDataCollection: "Data Collection",
+    privacyDataCollectionText:
+      "We don't collect any personal data, writing content, or usage analytics. Everything stays on your device.",
+    privacyLocalStorage: "Local Storage",
+    privacyLocalStorageText:
+      "Your writing is saved locally in your browser using localStorage. We never have access to this data.",
+    privacyNoTracking: "No Tracking",
+    privacyNoTrackingText:
+      "We don't use cookies, analytics, or any tracking technologies. Your privacy is completely protected.",
+    privacyOpenSource: "Open Source",
+    privacyOpenSourceText:
+      "Our code is open source and available for review. You can verify our privacy claims yourself.",
+
+    // Terms of Service
+    terms: "Terms",
+    termsTitle: "Terms of Service",
+    termsIntro: "Simple terms for using Qi:",
+    termsContent: {
+      title: "Terms of Service",
+      subtitle: "Simple terms for using Qi:",
+      acceptance:
+        "By using Qi, you agree to these terms. Qi is a free writing application that stores all data locally on your device.",
+      service:
+        "Qi provides a simple, privacy-focused writing environment. All your content remains on your device and under your control.",
+      responsibilities: "Your Responsibilities",
+      responsibilitiesList:
+        "Back up important content regularly, Use the app responsibly and legally, Understand that data is stored locally only, Keep your device secure if using PIN protection",
+      limitations: "Service Limitations",
+      limitationsList:
+        "We provide the app 'as is' without warranties, Local storage may have browser limitations, We're not responsible for data loss, Service may be updated or discontinued",
+      termination: "You can stop using Qi at any time. Your local data will remain on your device until you clear it.",
+      contact: "Questions about these terms? Contact us at overthinkr9@gmail.com",
+    },
+    termsUse: "Use of Service",
+    termsUseText:
+      "Qi is provided free of charge for personal and commercial use. You retain full ownership of your content.",
+    termsData: "Your Data",
+    termsDataText: "All data is stored locally on your device. You are responsible for backing up important content.",
+    termsLimitations: "Limitations",
+    termsLimitationsText:
+      "We provide Qi 'as is' without warranties. We're not liable for any data loss or service interruptions.",
+    termsContact: "Contact",
+    termsContactText: "For questions about these terms, contact us at overthinkr9@gmail.com",
+
+    // Contact
+    contact: "Contact",
+    contactTitle: "Contact Us",
+    contactDescription: "Get in touch with the Qi team",
+    contactName: "Name",
+    contactNamePlaceholder: "Your name",
+    contactEmail: "Email",
+    contactEmailPlaceholder: "your@email.com",
+    contactMessage: "Message",
+    contactMessagePlaceholder: "Tell us what's on your mind...",
+    contactSend: "Send Message",
+    contactSending: "Sending...",
+    contactSuccess: "Message sent successfully!",
+    contactError: "Failed to send message. Please try again.",
+    contactDirectEmail: "Or email us directly:",
+    close: "Close",
   },
-  
   zh: {
-    // Landing page
-    appName: '气',
-    tagline: '一个安静的写作之地。',
-    enter: '进入',
-    
-    // Welcome screen
-    welcomeTitle: '气',
-    welcomeSubtitle: '一个安静的写作之地',
-    welcomeFeatures: {
-      local: '所有内容本地保存',
-      noCloud: '无云端，无追踪',
-      noDistraction: '零干扰'
+    // App basics
+    appName: "气",
+    tagline: "安静的写作空间",
+    title: "气",
+    subtitle: "安静的写作空间",
+    enter: "进入",
+    language: "语言",
+    english: "English",
+    chinese: "中文",
+
+    // Writing interface
+    startWriting: "开始写作...",
+    startWritingTimestamps: "开始写作... (Ctrl/Cmd+T 插入时间戳)",
+    wordCount: "字数",
+    characterCount: "字符数",
+    placeholder: "在这里开始写下你的想法...",
+
+    // Focus exercises
+    focus: "专注",
+    focusExercises: "专注练习",
+    tryThis: "试试这个：",
+    exercises: {
+      rightNow: {
+        title: "现在我注意到…",
+        prompt: "完成这个句子"现在我注意到…"三次。不要过度思考。",
+        icon: "🧘",
+        category: "接地气 + 表达性"
+      },
+      todayOnly: {
+        title: "写一句只有今天才会发生的话。",
+        prompt: \"回顾你今天到目前为止的经历。什么事情只有今天才会发生？用一句话记录下来。",
+        icon: "📅",
+        category: "时间锚定 + 创意记忆"
+      },
+      objectView: {
+        title: "选择你附近的一个物体。它今天看到了什么？",
+        prompt: "选择附近的某样东西。从它的角度讲述一个时刻。",
+        icon: "🪞",
+        category: \"视角转换 + 想象力入口"
+      },
+      colorFeeling: {
+        title: "写一句话，把感觉和颜色互换。",
+        prompt: "例如：\"她离开了，房间变成了蓝色。"现在试试你自己的。",
+        icon: "🎨",
+        category: "隐喻训练 + 情感解锁"
+      },
+      tenWords: {
+        title: "用恰好十个字说一件真实的事。",
+        prompt: "恰好用10个字。让它们有意义。可以是有趣的、深刻的或简单的。",
+        icon: "🧠",
+        category: "约束驱动流 + 诚实"
+      }
     },
-    welcomeMessage: '欢迎使用气',
-    welcomeEnter: '请在下方进入',
-    enterQi: '进入气',
-    lightMode: '浅色模式',
-    darkMode: '深色模式',
-    
-    // Lock screen
-    locked: '您的写作空间已锁定',
-    unlock: '解锁',
-    
-    // Header
-    saving: '保存中...',
-    offline: '离线',
-    
-    // Tooltips
-    goToLanding: '返回首页',
-    singlePageView: '单页视图',
-    bookView: '书本视图（双页）',
-    pageSize: '页面大小',
-    nativeFileSystem: '本地文件系统',
-    toggleTheme: '切换主题',
-    shareApp: '分享应用',
-    saveAsTxt: '保存为TXT',
-    saveAsDocx: '保存为DOCX',
-    importFromFile: '从文件导入',
-    print: '打印',
-    toggleTimestamps: '切换自动时间戳',
-    timestampFormat: '时间戳格式',
-    lockWritingSpace: '锁定写作空间',
-    
-    // Page navigation
-    page: '第',
-    of: '页，共',
-    pages: '页',
-    previous: '上一页',
-    next: '下一页',
-    words: '字',
-    
-    // Placeholders
-    startWriting: '开始写作... 所有内容自动本地保存。',
-    startWritingTimestamps: '开始写作... 时间戳将在停顿后或双击回车时自动添加。按 Ctrl+T 手动插入。',
-    continueWriting: '继续写作...',
-    
-    // PIN dialogs
-    setPinTitle: '设置4位数字密码',
-    setPinDescription: '创建密码来锁定您的写作空间',
-    enterPinTitle: '输入密码',
-    enterPinDescription: '输入您的4位数字密码来解锁写作空间',
-    enterPin: '输入4位数字密码',
-    setPin: '设置密码',
-    
-    // Share dialog
-    shareTitle: '分享气',
-    shareDescription: '与他人分享这个安静的写作之地',
-    shareOnTwitter: '在Twitter上分享',
-    shareOnFacebook: '在Facebook上分享',
-    
-    // Export
-    exportedFrom: '从气导出 - 一个安静的写作之地',
-    date: '日期',
-    totalWords: '总字数',
-    
-    // Timestamp formats
+
+    // Export functionality
+    export: "导出",
+    exportAs: \"导出为",
+    exportOptions: "导出选项",\
+    exportAsTxt: "导出为文本",
+    exportAsTxtDesc: "纯文本文件 (.txt)",
+    exportAsDocx: "导出为Word",
+    exportAsDocxDesc: "Microsoft Word文档 (.docx)",
+    exportPdf: \"导出为PDF",\
+    exportPdfDesc: \"便携式文档格式 (.pdf)",
+    exportHtml: "导出为HTML",
+    exportHtmlDesc: "网页格式 (.html)",
+    printDocument: "打印文档",
+    printDocumentDesc: "打印或保存为PDF",
+    importFromFile: "从文件导入",
+    importFromFileDesc: "从文件加载文本 (.txt)",
+
+    // Timestamp functionality
+    timestampFormat: "时间戳格式",
     timestampFormats: {
-      datetime: '日期和时间',
-      date: '仅日期',
-      time: '仅时间'
+      datetime: "日期和时间",
+      date: "仅日期",
+      time: "仅时间",
     },
-    
-    // Page sizes
-    pageSizes: {
-      A4: 'A4',
-      Letter: 'Letter',
-      A5: 'A5'
-    },
-    
-    // Language
-    language: '语言',
-    english: 'English',
-    chinese: '中文'
-  }
+    timestampNone: "无时间戳",\
+    timestampDate: "仅日期\",\
+    timestampTime: "仅时间",\
+    timestampDateTime: "日期和时间",
+
+    // PIN/Lock functionality
+    setPinTitle: "设置密码",
+    setPinDescription: "设置4位数字密码来锁定你的写作空间",
+    enterPinTitle: "输入密码",
+    enterPinDescription: \"输入你的4位数字密码来解锁",\
+    enterPin: \"输入密码",\
+    setPin: "设置密码",
+    unlock: "解锁\",
+
+    // Share functionality
+    shareTitle: "分享气",
+    shareDescription: "与他人分享这个写作应用",
+    shareOnTwitter: "在Twitter上分享",
+    shareOnFacebook: "在Facebook上分享",
+
+    // About section
+    about: "关于",
+    aboutTitle: "关于气",
+    aboutDescription: "专注于隐私和简洁的极简写作应用。",
+    aboutFeatures: "主要功能：",
+    aboutFeature1: "所有内容都保存在你的浏览器本地",
+    aboutFeature2: "无需账户，无云存储，无跟踪",
+    aboutFeature3: "支持多种格式导出（TXT、DOCX、PDF、HTML）",
+    aboutFeature4: "自动时间戳和字数统计",
+    aboutFeature5: "简洁、无干扰的界面",
+\
+    // Privacy Policy
+    privacy: "隐私",\
+    privacyTitle: "隐私政策",\
+    privacyIntro: \"你的隐私是我们的首要任务。以下是我们如何保护它：",
+    privacyContent:
+{
+  \
+      title: "隐私政策",
+      subtitle: "你的隐私是我们的首要任务。以下是我们如何保护它：",
+      localOnly: "仅本地存储",
+      localOnlyDesc: "你的所有写作内容都保留在你的设备上。我们永远不会看到或存储你的内容。",\
+      noTracking: "无跟踪",
+      noTrackingDesc: \"我们不使用分析、Cookie或任何跟踪技术。\",\
+      noAccounts: "无需账户",
+      noAccountsDesc: \"无需注册，永远不收集个人信息。",
+      openSource: "开源",\
+      openSourceDesc: "我们的代码是透明的，可供审查。",
+      dataCollection: "我们不收集的内容",
+      dataCollectionList: "个人信息，写作内容，使用分析，Cookie或跟踪数据，IP地址，设备信息",
+      technical: "技术细节",
+      technicalList: "数据仅存储在浏览器localStorage中，无服务器端存储，无第三方集成，完全离线工作，你完全控制你的数据",
+}
+,
+    privacyDataCollection: "数据收集",
+    privacyDataCollectionText: "我们不收集任何个人数据、写作内容或使用分析。一切都保留在你的设备上。",
+    privacyLocalStorage: "本地存储",
+    privacyLocalStorageText: "你的写作使用localStorage保存在浏览器本地。我们永远无法访问这些数据。",
+    privacyNoTracking: "无跟踪",
+    privacyNoTrackingText: "我们不使用Cookie、分析或任何跟踪技术。你的隐私得到完全保护。",
+    privacyOpenSource: "开源",
+    privacyOpenSourceText: "我们的代码是开源的，可供审查。你可以自己验证我们的隐私声明。",
+
+    // Terms of Service
+    terms: "条款",
+    termsTitle: "服务条款",
+    termsIntro: "使用气的简单条款：",
+    termsContent:
+{
+  title: "服务条款", subtitle
+  : "使用气的简单条款：",
+      acceptance: "使用气即表示你同意这些条款。气是一个免费的写作应用，所有数据都本地存储在你的设备上。",
+      service: "气提供简单、注重隐私的写作环境。你的所有内容都保留在你的设备上，由你控制。",
+      responsibilities: "你的责任",
+      responsibilitiesList:
+        "定期备份重要内容，负责任和合法地使用应用，理解数据仅本地存储，如果使用PIN保护请保护好你的设备",
+      limitations: "服务限制",
+      limitationsList:
+        "我们按'现状'提供应用，不提供保证，本地存储可能有浏览器限制，我们不对数据丢失负责，服务可能会更新或停止",
+      termination: "你可以随时停止使用气。你的本地数据将保留在你的设备上，直到你清除它。",
+      contact: "对这些条款有疑问？请联系我们：overthinkr9@gmail.com",
+}
+,
+    termsUse: \"服务使用",
+    termsUseText: "气免费提供个人和商业使用。你保留对内容的完全所有权。",
+    termsData: "你的数据",
+    termsDataText: "所有数据都本地存储在你的设备上。你有责任备份重要内容。",
+    termsLimitations: "限制",
+    termsLimitationsText: "我们按'现状'提供气，不提供保证。我们不对任何数据丢失或服务中断负责。",
+    termsContact: "联系",
+    termsContactText: "关于这些条款的问题，请联系我们：overthinkr9@gmail.com",
+
+    // Contact
+    contact: "联系",
+    contactTitle: "联系我们",
+    contactDescription: "与气团队取得联系",
+    contactName: "姓名",
+    contactNamePlaceholder: "你的姓名",
+    contactEmail: "邮箱",
+    contactEmailPlaceholder: "your@email.com",\
+    contactMessage: "消息",
+    contactMessagePlaceholder: "告诉我们你的想法...",
+    contactSend: "发送消息",
+    contactSending: "发送中...",
+    contactSuccess: "消息发送成功！",
+    contactError: "发送消息失败。请重试。",
+    contactDirectEmail: "或直接发邮件给我们：",
+    close: "关闭",
+  },
 }
 
-export const getTranslation = (language: Language, key: string): string => {
-  const keys = key.split('.')
+export function getTranslation(language: Language, key: string): string {
+  const keys = key.split(".")
   let value: any = translations[language]
-  
+
   for (const k of keys) {
     value = value?.[k]
   }
-  
+
   return value || key
 }

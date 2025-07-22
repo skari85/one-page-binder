@@ -1,116 +1,205 @@
-import { ArrowLeft, FileText, Shield, Zap, Smartphone } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import type { Metadata } from "next"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft, FileText, Shield, Zap, Globe, Heart, Code } from "lucide-react"
+
+export const metadata: Metadata = {
+  title: "About - Qi",
+  description: "Learn more about Qi, a minimalist writing app focused on privacy and simplicity.",
+}
 
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-white" />
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">About Qi</h1>
+              <p className="text-muted-foreground">A quiet place to write</p>
             </div>
-            <h1 className="text-xl font-bold">One Page Binder</h1>
-          </div>
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to App
-            </Button>
-          </Link>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        <div className="max-w-4xl mx-auto space-y-12">
-          {/* Hero Section */}
-          <div className="text-center space-y-6">
-            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-              About One Page Binder
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              A minimalist writing tool designed for those who value privacy, simplicity, and reliability.
-            </p>
+            <Link href="/">
+              <Button variant="outline">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to App
+              </Button>
+            </Link>
           </div>
 
-          {/* Mission */}
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold">Our Mission</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              In a world where most writing tools require cloud accounts, internet connections, and complex setups, 
-              One Page Binder was created to provide a simple, private, and reliable alternative. We believe that 
-              the best writing tool should be one that gets out of your way and lets you focus on what matters most - your thoughts.
-            </p>
-          </div>
-
-          {/* Features */}
+          {/* Main Content */}
           <div className="space-y-8">
-            <h2 className="text-3xl font-bold">What Makes Us Different</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl flex items-center justify-center">
-                  <Shield className="w-8 h-8 text-green-600 dark:text-green-400" />
-                </div>
-                <h3 className="text-xl font-semibold">Privacy First</h3>
-                <p className="text-muted-foreground">
-                  Everything you write stays on your device. No cloud storage, no tracking, no data collection.
+            {/* Introduction */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  What is Qi?
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p>
+                  Qi (气) is a minimalist writing application designed with privacy and simplicity at its core. Named
+                  after the Chinese concept of life force or energy flow, Qi provides a distraction-free environment
+                  where your thoughts can flow freely onto the digital page.
                 </p>
-              </div>
+                <p>
+                  Unlike traditional writing apps that store your data in the cloud, Qi keeps everything local on your
+                  device. This means your writing remains private, secure, and accessible even when you're offline.
+                </p>
+              </CardContent>
+            </Card>
 
-              <div className="space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl flex items-center justify-center">
-                  <Zap className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="text-xl font-semibold">Lightning Fast</h3>
-                <p className="text-muted-foreground">
-                  Instant auto-save, zero distractions, and seamless offline experience.
-                </p>
-              </div>
+            {/* Features Grid */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Shield className="w-5 h-5 mr-2" />
+                    Privacy First
+                  </CardTitle>
+                  <CardDescription>Your data stays with you</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    <li>• All content stored locally in your browser</li>
+                    <li>• No cloud storage or data transmission</li>
+                    <li>• No tracking, analytics, or cookies</li>
+                    <li>• No account registration required</li>
+                  </ul>
+                </CardContent>
+              </Card>
 
-              <div className="space-y-4 p-6 rounded-2xl bg-gradient-to-br from-background to-muted/20 border border-border/50">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl flex items-center justify-center">
-                  <Smartphone className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h3 className="text-xl font-semibold">Works Everywhere</h3>
-                <p className="text-muted-foreground">
-                  Desktop, tablet, or phone - your writing follows you everywhere.
-                </p>
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Zap className="w-5 h-5 mr-2" />
+                    Simple & Fast
+                  </CardTitle>
+                  <CardDescription>Focus on what matters</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    <li>• Clean, distraction-free interface</li>
+                    <li>• Automatic saving as you type</li>
+                    <li>• Instant startup, no loading screens</li>
+                    <li>• Works completely offline</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Globe className="w-5 h-5 mr-2" />
+                    Universal Access
+                  </CardTitle>
+                  <CardDescription>Write anywhere, anytime</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    <li>• Works in any modern web browser</li>
+                    <li>• Responsive design for all devices</li>
+                    <li>• Multiple export formats (TXT, DOCX, PDF)</li>
+                    <li>• Bilingual support (English & Chinese)</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Code className="w-5 h-5 mr-2" />
+                    Open Source
+                  </CardTitle>
+                  <CardDescription>Transparent and trustworthy</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm">
+                    <li>• Source code available for review</li>
+                    <li>• Community-driven development</li>
+                    <li>• No hidden functionality</li>
+                    <li>• Built with modern web technologies</li>
+                  </ul>
+                </CardContent>
+              </Card>
             </div>
-          </div>
 
-          {/* Technology */}
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold">Built with Modern Technology</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              One Page Binder is built using Next.js, React, and TypeScript, ensuring a fast, reliable, 
-              and maintainable codebase. We use local storage for data persistence and modern web APIs 
-              for the best possible user experience.
-            </p>
-          </div>
+            {/* Philosophy */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Heart className="w-5 h-5 mr-2" />
+                  Our Philosophy
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p>
+                  In an age of constant connectivity and data harvesting, we believe that writing should be a personal,
+                  private act. Your thoughts, ideas, and creative expressions deserve to remain yours alone.
+                </p>
+                <p>
+                  Qi embodies the principle of digital minimalism - providing just what you need to write effectively,
+                  without the bloat, distractions, or privacy concerns of modern software. We believe that the best
+                  tools are often the simplest ones.
+                </p>
+                <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground">
+                  "The best writing app is the one that gets out of your way and lets you write."
+                </blockquote>
+              </CardContent>
+            </Card>
 
-          {/* Open Source */}
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold">Open Source</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              We believe in transparency and community. One Page Binder is open source, meaning you can 
-              inspect the code, contribute improvements, or even run your own instance if you prefer.
-            </p>
-          </div>
+            {/* Technical Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Technical Details</CardTitle>
+                <CardDescription>For the curious minds</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">Built With:</h4>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    <li>• Next.js 15 with React 19</li>
+                    <li>• TypeScript for type safety</li>
+                    <li>• Tailwind CSS for styling</li>
+                    <li>• Radix UI for accessible components</li>
+                    <li>• Local Storage API for data persistence</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-semibold mb-2">Browser Compatibility:</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Qi works in all modern browsers that support ES6+ and the Local Storage API. This includes Chrome,
+                    Firefox, Safari, and Edge (recent versions).
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Contact */}
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold">Get in Touch</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Have questions, suggestions, or want to contribute? We'd love to hear from you! 
-              Reach out to us through our GitHub repository or contact us directly.
-            </p>
+            {/* Contact */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Get in Touch</CardTitle>
+                <CardDescription>We'd love to hear from you</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4">
+                  Have questions, suggestions, or just want to say hello? We're always happy to hear from our users.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button asChild>
+                    <a href="mailto:overthinkr9@gmail.com">Contact Us</a>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/">Try Qi Now</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
