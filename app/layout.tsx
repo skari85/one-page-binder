@@ -1,7 +1,10 @@
+import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Analytics } from "@vercel/analytics/next"
+import { Suspense } from "react"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +18,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Qi – A quiet place to write",
-  description: "A quiet place to write. A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing.",
-  keywords: ["writing tool", "note taking", "local storage", "privacy", "minimalist", "text editor", "writing app", "quiet", "peaceful"],
+  description:
+    "A quiet place to write. A minimalist writing tool that saves everything locally. No cloud, no tracking, just pure writing.",
+  keywords: [
+    "writing tool",
+    "note taking",
+    "local storage",
+    "privacy",
+    "minimalist",
+    "text editor",
+    "writing app",
+    "quiet",
+    "peaceful",
+  ],
   authors: [{ name: "Qi Team" }],
   creator: "Qi",
   publisher: "Qi",
@@ -25,31 +39,31 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL('https://one-page-binder.vercel.app'),
+  metadataBase: new URL("https://one-page-binder.vercel.app"),
   alternates: {
-    canonical: '/',
+    canonical: "/",
   },
   openGraph: {
     title: "Qi – A quiet place to write",
     description: "A quiet place to write. A minimalist writing tool that saves everything locally.",
-    url: 'https://one-page-binder.vercel.app',
-    siteName: 'Qi',
+    url: "https://one-page-binder.vercel.app",
+    siteName: "Qi",
     images: [
       {
-        url: '/og-image.png',
+        url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: 'Qi – A quiet place to write',
+        alt: "Qi – A quiet place to write",
       },
     ],
-    locale: 'en_US',
-    type: 'website',
+    locale: "en_US",
+    type: "website",
   },
   twitter: {
-    card: 'summary_large_image',
+    card: "summary_large_image",
     title: "Qi – A quiet place to write",
     description: "A quiet place to write. A minimalist writing tool that saves everything locally.",
-    images: ['/og-image.png'],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
@@ -57,15 +71,15 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   verification: {
-    google: 'your-google-verification-code',
+    google: "your-google-verification-code",
   },
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -84,20 +98,20 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Qi" />
         <meta name="msapplication-TileColor" content="#f59e0b" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        
+
         {/* PWA Manifest */}
         <link rel="manifest" href="/manifest.json" />
-        
+
         {/* Icons */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
-        
+
         {/* Preconnect to external domains */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        
+
         {/* Service Worker Registration */}
         <script
           dangerouslySetInnerHTML={{
@@ -144,7 +158,7 @@ export default function RootLayout({
             `,
           }}
         />
-        
+
         {/* Structured Data */}
         <script
           type="application/ld+json"
@@ -152,21 +166,21 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              "name": "Qi",
-              "description": "A quiet place to write. A minimalist writing tool that saves everything locally.",
-              "url": "https://one-page-binder.vercel.app",
-              "applicationCategory": "ProductivityApplication",
-              "operatingSystem": "Web Browser",
-              "offers": {
+              name: "Qi",
+              description: "A quiet place to write. A minimalist writing tool that saves everything locally.",
+              url: "https://one-page-binder.vercel.app",
+              applicationCategory: "ProductivityApplication",
+              operatingSystem: "Web Browser",
+              offers: {
                 "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
+                price: "0",
+                priceCurrency: "USD",
               },
-              "author": {
+              author: {
                 "@type": "Organization",
-                "name": "Qi"
-              }
-            })
+                name: "Qi",
+              },
+            }),
           }}
         />
       </head>
@@ -176,14 +190,12 @@ export default function RootLayout({
           fontFeatureSettings: "'rlig' 1, 'calt' 1",
         }}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <Suspense fallback={null}>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+            {children}
+          </ThemeProvider>
+        </Suspense>
+        <Analytics />
       </body>
     </html>
   )
