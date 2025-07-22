@@ -1,356 +1,192 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import {
+  ExternalLink,
+  BookOpen,
+  FileText,
   Moon,
   Sun,
-  Lock,
-  Unlock,
-  FileText,
-  Clock,
-  ArrowRight,
-  WifiOff,
-  HardDrive,
   Share2,
-  Copy,
-  Check,
-  FileDown,
-  FileUp,
-  Printer,
-  FileCheck,
-  Home,
-  BookOpen,
-  SplitIcon as SinglePage,
+  Download,
+  Clock,
+  Lock,
   ChevronLeft,
   ChevronRight,
+  Printer,
+  FileDown,
+  Upload,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
-import { PWAUpdatePrompt } from "@/components/pwa-update-prompt"
-import { OfflineIndicator } from "@/components/offline-indicator"
-import { isTauri } from "@/lib/tauri-api"
-import { getTranslation, type Language } from "@/lib/translations"
+import { exportToDocx } from "@/lib/docx-export"
+import { getTranslation, type Language } from "@/lib/translation"
+import { getLanguage, setLanguage } from "@/lib/language"
+import { translations } from "@/lib/translations"
 
-export default function Qi() {
+const CHARS_PER_PAGE = 2000
+const LINES_PER_PAGE = 50
+
+interface TimestampedContent {
+  id: string
+  content: string
+  timestamp: Date
+}
+
+type TimestampFormat = "datetime" | "date" | "time"
+
+export default function QiApp() {
   const [content, setContent] = useState("")
+  const [timestampedContent, setTimestampedContent] = useState<TimestampedContent[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
   const [isLocked, setIsLocked] = useState(false)
   const [pin, setPin] = useState("")
-  const [inputPin, setInputPin] = useState("")
+  const [enteredPin, setEnteredPin] = useState("")
   const [showPinDialog, setShowPinDialog] = useState(false)
   const [showUnlockDialog, setShowUnlockDialog] = useState(false)
-  const [isSettingPin, setIsSettingPin] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [showLanding, setShowLanding] = useState(true)
-  const [copied, setCopied] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  const [showShortcutsDialog, setShowShortcutsDialog] = useState(false)
-  const [showExportDialog, setShowExportDialog] = useState(false)
-  const [exportFormat, setExportFormat] = useState<"txt" | "docx" | "pdf" | "epub">("txt")
-  const [exportRange, setExportRange] = useState<"all" | "current" | "range">("all")
-  const [exportStartPage, setExportStartPage] = useState(1)
-  const [exportEndPage, setExportEndPage] = useState(1)
+  const [timestampFormat, setTimestampFormat] = useState<TimestampFormat>("datetime")
+  const [language, setLanguageState] = useState<Language>("en")
+  const [mounted, setMounted] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-  const [timestampsEnabled, setTimestampsEnabled] = useState(false)
-  const [lastTypingTime, setLastTypingTime] = useState(0)
-  const [timestampFormat, setTimestampFormat] = useState<"datetime" | "time" | "date">("datetime")
-  const [isOffline, setIsOffline] = useState(false)
-  const [showNativeFileSystem, setShowNativeFileSystem] = useState(false)
 
-  // Language state
-  const [language, setLanguage] = useState<Language>("en")
+  const t = (key: string) => getTranslation(language, key)
 
-  // Page-based writing system state
-  const [viewMode, setViewMode] = useState<"single" | "book">("single")
-  const [pageSize, setPageSize] = useState<"A4" | "Letter" | "A5">("A4")
-  const [pages, setPages] = useState<Array<{ id: string; content: string; wordCount: number }>>([
-    { id: "1", content: "", wordCount: 0 },
-  ])
-  const [currentPage, setCurrentPage] = useState(0)
-  const [currentBookPage, setCurrentBookPage] = useState(0) // For book view (shows pages currentBookPage and currentBookPage+1)
-  const pageRefs = useRef<(HTMLTextAreaElement | null)[]>([])
-
-  // Page size configurations
-  const pageSizes = {
-    A4: {
-      width: "210mm",
-      height: "297mm",
-      wordsPerPage: 325,
-      linesPerPage: 30,
-      className: "w-[800px] h-[1131px]", // A4 ratio scaled up for better screen viewing
-    },
-    Letter: {
-      width: "8.5in",
-      height: "11in",
-      wordsPerPage: 300,
-      linesPerPage: 28,
-      className: "w-[800px] h-[1035px]", // Letter ratio scaled up for better screen viewing
-    },
-    A5: {
-      width: "148mm",
-      height: "210mm",
-      wordsPerPage: 200,
-      linesPerPage: 22,
-      className: "w-[600px] h-[849px]", // A5 ratio scaled up for better screen viewing
-    },
-  }
-
-  // Helper functions for page management
-  const countWords = (text: string) => {
-    return text
-      .trim()
-      .split(/\s+/)
-      .filter((word) => word.length > 0).length
-  }
-
-  const getCurrentPageSize = () => pageSizes[pageSize]
-
-  const shouldCreateNewPage = (content: string) => {
-    const wordCount = countWords(content)
-    const currentPageSize = getCurrentPageSize()
-    return wordCount >= currentPageSize.wordsPerPage
-  }
-
-  // Ensure component is mounted before accessing theme
   useEffect(() => {
     setMounted(true)
+    const savedLanguage = getLanguage()
+    setLanguageState(savedLanguage)
 
-    // Check online status
-    setIsOffline(!navigator.onLine)
-
-    // Listen for online/offline events
-    const handleOffline = () => setIsOffline(true)
-    const handleOnline = () => setIsOffline(false)
-
-    window.addEventListener("offline", handleOffline)
-    window.addEventListener("online", handleOnline)
-
-    return () => {
-      window.removeEventListener("offline", handleOffline)
-      window.removeEventListener("online", handleOnline)
-    }
-  }, [])
-
-  // Load data from localStorage on mount
-  useEffect(() => {
     const savedContent = localStorage.getItem("qi-content")
+    const savedTimestampedContent = localStorage.getItem("qi-timestamped-content")
     const savedPin = localStorage.getItem("qi-pin")
-    const savedLockState = localStorage.getItem("qi-locked")
-    const savedTimestamps = localStorage.getItem("qi-timestamps")
+    const savedLocked = localStorage.getItem("qi-locked")
     const savedTimestampFormat = localStorage.getItem("qi-timestamp-format")
-    const savedLanguage = localStorage.getItem("qi-language")
-    const hasVisited = localStorage.getItem("qi-visited")
 
     if (savedContent) setContent(savedContent)
+    if (savedTimestampedContent) {
+      try {
+        const parsed = JSON.parse(savedTimestampedContent)
+        setTimestampedContent(
+          parsed.map((item: any) => ({
+            ...item,
+            timestamp: new Date(item.timestamp),
+          })),
+        )
+      } catch (e) {
+        console.error("Failed to parse timestamped content:", e)
+      }
+    }
     if (savedPin) setPin(savedPin)
-    if (savedLockState === "true") {
-      setIsLocked(true)
-      setShowUnlockDialog(true)
-    }
-    if (savedTimestamps) setTimestampsEnabled(savedTimestamps === "true")
-    if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat as "datetime" | "time" | "date")
-    if (savedLanguage) setLanguage(savedLanguage as Language)
-    if (hasVisited) {
-      setShowWelcome(false)
-      setShowLanding(false)
-    }
+    if (savedLocked === "true") setIsLocked(true)
+    if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat as TimestampFormat)
   }, [])
 
-  // Auto-save content with visual indicator
   useEffect(() => {
-    if (content !== "") {
-      setIsSaving(true)
-      const saveTimeout = setTimeout(() => {
-        try {
-          localStorage.setItem("qi-content", content)
-          setIsSaving(false)
-        } catch (error) {
-          console.error("Error saving to localStorage:", error)
-          setIsSaving(false)
-        }
-      }, 500)
-
-      return () => clearTimeout(saveTimeout)
+    if (mounted) {
+      localStorage.setItem("qi-content", content)
     }
-  }, [content])
-
-  // Save timestamp preferences
-  useEffect(() => {
-    localStorage.setItem("qi-timestamps", timestampsEnabled.toString())
-  }, [timestampsEnabled])
+  }, [content, mounted])
 
   useEffect(() => {
-    localStorage.setItem("qi-timestamp-format", timestampFormat)
-  }, [timestampFormat])
-
-  // Save language preference
-  useEffect(() => {
-    localStorage.setItem("qi-language", language)
-  }, [language])
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto"
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px"
+    if (mounted) {
+      localStorage.setItem("qi-timestamped-content", JSON.stringify(timestampedContent))
     }
-  }, [content])
+  }, [timestampedContent, mounted])
 
-  const formatTimestamp = (format: "datetime" | "time" | "date") => {
+  useEffect(() => {
+    if (mounted) {
+      localStorage.setItem("qi-timestamp-format", timestampFormat)
+    }
+  }, [timestampFormat, mounted])
+
+  const handleLanguageChange = (newLanguage: Language) => {
+    setLanguageState(newLanguage)
+    setLanguage(newLanguage)
+  }
+
+  const formatTimestamp = (date: Date) => {
+    const options: Intl.DateTimeFormatOptions =
+      timestampFormat === "datetime"
+        ? { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+        : timestampFormat === "date"
+          ? { year: "numeric", month: "short", day: "numeric" }
+          : { hour: "2-digit", minute: "2-digit" }
+
+    return date.toLocaleDateString(language === "zh" ? "zh-CN" : "en-US", options)
+  }
+
+  const addTimestamp = useCallback(() => {
     const now = new Date()
-    switch (format) {
-      case "datetime":
-        return now.toLocaleString()
-      case "time":
-        return now.toLocaleTimeString()
-      case "date":
-        return now.toLocaleDateString()
-      default:
-        return now.toLocaleString()
+    const newEntry: TimestampedContent = {
+      id: Date.now().toString(),
+      content: content,
+      timestamp: now,
     }
-  }
+    setTimestampedContent((prev) => [...prev, newEntry])
+    setContent("")
+  }, [content])
 
-  const insertTimestamp = () => {
-    const timestamp = `[${formatTimestamp(timestampFormat)}] `
-    const textarea = textareaRef.current
-    if (textarea) {
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const newContent = content.slice(0, start) + timestamp + content.slice(end)
-      setContent(newContent)
-
-      setTimeout(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + timestamp.length
-        textarea.focus()
-      }, 0)
-    }
-  }
-
-  const shouldAutoInsertTimestamp = () => {
-    const now = Date.now()
-    const timeSinceLastTyping = now - lastTypingTime
-    return timestampsEnabled && timeSinceLastTyping > 300000 && lastTypingTime !== 0
-  }
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value
-    const now = Date.now()
-
-    if (shouldAutoInsertTimestamp() && newContent.length > content.length) {
-      const timestamp = `\n[${formatTimestamp(timestampFormat)}] `
-      const textarea = textareaRef.current
-      if (textarea) {
-        const cursorPos = textarea.selectionStart
-        const beforeCursor = newContent.slice(0, cursorPos)
-        const afterCursor = newContent.slice(cursorPos)
-        const contentWithTimestamp = beforeCursor + timestamp + afterCursor
-        setContent(contentWithTimestamp)
-
-        setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = cursorPos + timestamp.length
-        }, 0)
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "t") {
+        e.preventDefault()
+        addTimestamp()
       }
-    } else {
-      setContent(newContent)
-    }
+    },
+    [addTimestamp],
+  )
 
-    setLastTypingTime(now)
-  }
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [handleKeyDown])
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Timestamp shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === "t") {
-      e.preventDefault()
-      insertTimestamp()
-    }
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      (content.length + timestampedContent.reduce((acc, item) => acc + item.content.length, 0)) / CHARS_PER_PAGE,
+    ),
+  )
 
-    // Save shortcut (Ctrl/Cmd + S)
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-      e.preventDefault()
-      // Content is already auto-saved, just show a brief indicator
-      setIsSaving(true)
-      setTimeout(() => setIsSaving(false), 500)
-    }
+  const getPageContent = (pageNum: number) => {
+    const allContent =
+      timestampedContent.map((item) => `${formatTimestamp(item.timestamp)}\n${item.content}`).join("\n\n") +
+      (content ? `\n\n${content}` : "")
 
-    // Export shortcut (Ctrl/Cmd + E)
-    if ((e.ctrlKey || e.metaKey) && e.key === "e") {
-      e.preventDefault()
-      handleExport("txt")
-    }
-
-    // Lock shortcut (Ctrl/Cmd + L)
-    if ((e.ctrlKey || e.metaKey) && e.key === "l") {
-      e.preventDefault()
-      handleLock()
-    }
-
-    // Auto-timestamp on double enter
-    if (e.key === "Enter" && timestampsEnabled) {
-      const textarea = textareaRef.current
-      if (textarea) {
-        const cursorPos = textarea.selectionStart
-        const beforeCursor = content.slice(0, cursorPos)
-        const lastTwoChars = beforeCursor.slice(-2)
-
-        if (lastTwoChars === "\n\n" || (beforeCursor.endsWith("\n") && beforeCursor.slice(-3, -1) === "\n\n")) {
-          setTimeout(() => {
-            insertTimestamp()
-          }, 0)
-        }
-      }
-    }
-  }
-
-  const handleEnterQi = () => {
-    setShowWelcome(false)
-    setShowLanding(false)
-    localStorage.setItem("qi-visited", "true")
-  }
-
-  const handleGoHome = () => {
-    setShowLanding(true)
-    setShowWelcome(false)
+    const startChar = (pageNum - 1) * CHARS_PER_PAGE
+    const endChar = pageNum * CHARS_PER_PAGE
+    return allContent.slice(startChar, endChar)
   }
 
   const handleSetPin = () => {
-    if (inputPin.length === 4 && /^\d{4}$/.test(inputPin)) {
-      setPin(inputPin)
-      localStorage.setItem("qi-pin", inputPin)
-      setInputPin("")
+    if (pin.length === 4) {
+      localStorage.setItem("qi-pin", pin)
       setShowPinDialog(false)
-      setIsSettingPin(false)
-    }
-  }
-
-  const handlePinKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      if (isSettingPin) {
-        handleSetPin()
-      } else {
-        handleUnlock()
-      }
     }
   }
 
   const handleUnlock = () => {
-    if (inputPin === pin) {
+    if (enteredPin === pin) {
       setIsLocked(false)
       localStorage.setItem("qi-locked", "false")
-      setInputPin("")
       setShowUnlockDialog(false)
+      setEnteredPin("")
     }
   }
 
@@ -359,1040 +195,339 @@ export default function Qi() {
       setIsLocked(true)
       localStorage.setItem("qi-locked", "true")
     } else {
-      setIsSettingPin(true)
       setShowPinDialog(true)
     }
   }
 
-  const handleExport = async (format: "txt" | "docx" | "pdf" | "epub" = "txt") => {
-    const timestamp = new Date().toISOString().split("T")[0]
+  const exportAsText = () => {
+    const allContent =
+      timestampedContent.map((item) => `${formatTimestamp(item.timestamp)}\n${item.content}`).join("\n\n") +
+      (content ? `\n\n${content}` : "")
 
-    // Get content based on export range
-    let exportContent = ""
-    let exportPages: typeof pages = []
+    const blob = new Blob([allContent], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "qi-writing.txt"
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
-    if (exportRange === "all") {
-      exportPages = pages
-      exportContent = pages.map((page) => page.content).join("\n\n--- Page Break ---\n\n")
-    } else if (exportRange === "current") {
-      exportPages = [pages[currentPage]]
-      exportContent = pages[currentPage]?.content || ""
-    } else if (exportRange === "range") {
-      const startIdx = Math.max(0, exportStartPage - 1)
-      const endIdx = Math.min(pages.length - 1, exportEndPage - 1)
-      exportPages = pages.slice(startIdx, endIdx + 1)
-      exportContent = exportPages
-        .map((page, idx) => `--- Page ${startIdx + idx + 1} ---\n\n${page.content}`)
-        .join("\n\n--- Page Break ---\n\n")
-    }
+  const exportAsDocx = async () => {
+    const allContent =
+      timestampedContent.map((item) => `${formatTimestamp(item.timestamp)}\n${item.content}`).join("\n\n") +
+      (content ? `\n\n${content}` : "")
 
-    const totalWords = exportPages.reduce((sum, page) => sum + page.wordCount, 0)
-    const bookTitle =
-      exportContent
-        .split("\n")[0]
-        ?.replace(/[^\w\s]/gi, "")
-        .trim()
-        .slice(0, 50) || "Qi Document"
+    await exportToDocx(allContent, "qi-writing.docx")
+  }
 
-    if (format === "txt") {
-      const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.txt`
-      const txtContent = `${bookTitle}\n${"=".repeat(bookTitle.length)}\n\nExported from Qi - A quiet place to write\nDate: ${new Date().toLocaleDateString()}\nPages: ${exportPages.length}\nTotal Words: ${totalWords}\n\n${"-".repeat(50)}\n\n${exportContent}`
+  const exportAsPdf = () => {
+    window.print()
+  }
 
-      try {
-        const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = filename
-        a.style.display = "none"
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-      } catch (error) {
-        console.error("Export failed:", error)
-        const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(txtContent)
-        const downloadAnchorNode = document.createElement("a")
-        downloadAnchorNode.setAttribute("href", dataStr)
-        downloadAnchorNode.setAttribute("download", filename)
-        document.body.appendChild(downloadAnchorNode)
-        downloadAnchorNode.click()
-        downloadAnchorNode.remove()
-      }
-    } else if (format === "docx") {
-      try {
-        // Dynamic import to avoid SSR issues
-        const { exportToDocx } = await import("@/lib/docx-export")
-        const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.docx`
-        await exportToDocx(exportContent, filename)
-      } catch (error) {
-        console.error("DOCX export failed:", error)
-        // Fallback to HTML export
-        const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.html`
-        const htmlContent = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <title>${bookTitle}</title>
-            <style>
-              @page {
-                size: ${pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : "A5"};
-                margin: 1in;
-              }
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                line-height: 1.6;
-                max-width: 8.5in;
-                margin: 0 auto;
-                padding: 1in;
-                white-space: pre-wrap;
-              }
-              h1 {
-                text-align: center;
-                border-bottom: 2px solid #333;
-                padding-bottom: 10px;
-                margin-bottom: 30px;
-              }
-              .page-break {
-                page-break-before: always;
-                border-top: 1px dashed #ccc;
-                padding-top: 20px;
-                margin-top: 20px;
-              }
-              .metadata {
-                font-size: 0.9em;
-                color: #666;
-                margin-bottom: 30px;
-                text-align: center;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>${bookTitle}</h1>
-            <div class="metadata">
-              Exported from Qi - A quiet place to write<br>
-              Date: ${new Date().toLocaleDateString()}<br>
-              Pages: ${exportPages.length} | Words: ${totalWords}
-            </div>
-            <div>${exportContent.replace(/--- Page Break ---/g, '<div class="page-break"></div>').replace(/\n/g, "<br>")}</div>
-          </body>
-          </html>
-        `
-
-        const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = filename
-        a.style.display = "none"
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-      }
-    } else if (format === "pdf") {
-      // For PDF, we'll create an HTML version optimized for printing
-      const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.html`
-      const pdfContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${bookTitle}</title>
-          <style>
-            @page {
-              size: ${pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : "A5"};
-              margin: 1in;
-            }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-            body { 
-              font-family: 'Times New Roman', serif;
-              line-height: 1.6;
-              font-size: 12pt;
-              white-space: pre-wrap;
-            }
-            h1 {
-              text-align: center;
-              font-size: 18pt;
-              margin-bottom: 30px;
-            }
-            .page-break {
-              page-break-before: always;
-            }
-            .metadata {
-              font-size: 10pt;
-              color: #666;
-              margin-bottom: 30px;
-              text-align: center;
-            }
-            .print-button {
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              padding: 10px 20px;
-              background: #007bff;
-              color: white;
-              border: none;
-              border-radius: 5px;
-              cursor: pointer;
-            }
-          </style>
-        </head>
-        <body>
-          <button class="print-button no-print" onclick="window.print()">Print to PDF</button>
-          <h1>${bookTitle}</h1>
-          <div class="metadata">
-            Exported from Qi - A quiet place to write<br>
-            Date: ${new Date().toLocaleDateString()}<br>
-            Pages: ${exportPages.length} | Words: ${totalWords}
-          </div>
-          <div>${exportContent.replace(/--- Page Break ---/g, '<div class="page-break"></div>').replace(/\n/g, "<br>")}</div>
-        </body>
-        </html>
-      `
-
-      const blob = new Blob([pdfContent], { type: "text/html;charset=utf-8" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      a.style.display = "none"
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      // Also open in new window for immediate printing
-      const printWindow = window.open(url, "_blank")
-      if (printWindow) {
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.focus()
-          }, 500)
+  const importFromFile = () => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = ".txt"
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const text = e.target?.result as string
+          setContent((prev) => prev + (prev ? "\n\n" : "") + text)
         }
+        reader.readAsText(file)
       }
-    } else if (format === "epub") {
-      // For EPUB, we'll create a structured HTML that can be converted
-      const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}-epub.html`
-      const epubContent = `
-        <!DOCTYPE html>
-        <html xmlns="http://www.w3.org/1999/xhtml">
-        <head>
-          <meta charset="utf-8"/>
-          <title>${bookTitle}</title>
-          <style>
-            body { 
-              font-family: Georgia, serif;
-              line-height: 1.6;
-              max-width: 35em;
-              margin: 0 auto;
-              padding: 2em;
-            }
-            h1 { 
-              text-align: center;
-              font-size: 2em;
-              margin-bottom: 1em;
-            }
-            .chapter {
-              page-break-before: always;
-              margin-top: 2em;
-            }
-            .metadata {
-              font-size: 0.9em;
-              color: #666;
-              margin-bottom: 2em;
-              text-align: center;
-              font-style: italic;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>${bookTitle}</h1>
-          <div class="metadata">
-            Exported from Qi - A quiet place to write<br/>
-            ${new Date().toLocaleDateString()}<br/>
-            ${exportPages.length} pages, ${totalWords} words
-          </div>
-          ${exportPages
-            .map(
-              (page, idx) =>
-                `<div class="chapter">
-              <h2>Page ${idx + 1}</h2>
-              <div>${page.content.replace(/\n/g, "<br/>")}</div>
-            </div>`,
-            )
-            .join("")}
-        </body>
-        </html>
-      `
-
-      const blob = new Blob([epubContent], { type: "text/html;charset=utf-8" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      a.style.display = "none"
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
     }
-  }
-
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && file.type === "text/plain") {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const text = e.target?.result as string
-        setContent(text)
-      }
-      reader.readAsText(file)
-    }
-    event.target.value = ""
-  }
-
-  const handlePrint = () => {
-    const printWindow = window.open("", "_blank")
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Qi</title>
-            <style>
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                line-height: 1.6;
-                max-width: 8.5in;
-                margin: 0 auto;
-                padding: 1in;
-                white-space: pre-wrap;
-              }
-              h1 {
-                text-align: center;
-                border-bottom: 2px solid #333;
-                padding-bottom: 10px;
-                margin-bottom: 30px;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>Qi</h1>
-            <div>${content.replace(/\n/g, "<br>")}</div>
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.print()
-    }
-  }
-
-  const handleShare = async () => {
-    // Check if Web Share API is available and allowed
-    if (navigator.share && window.isSecureContext) {
-      try {
-        await navigator.share({
-          title: "Qi",
-          text: "Check out Qi – A quiet place to write!",
-          url: window.location.href,
-        })
-      } catch (error) {
-        // User cancelled or sharing failed, fall back to share dialog
-        console.log("Share cancelled or failed:", error)
-        setShowShareDialog(true)
-      }
-    } else {
-      // Web Share API not available, use fallback dialog
-      setShowShareDialog(true)
-    }
-  }
-
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
-      console.error("Failed to copy:", error)
-    }
+    input.click()
   }
 
   if (!mounted) {
     return null
   }
 
-  // Landing Page - Simple White Design
-  if (showLanding) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="text-center space-y-8 max-w-md w-full">
-          {/* Logo and Title */}
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <img
-                src="/qilogo.png"
-                alt="Qi Logo"
-                className="h-16 w-auto max-w-16"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none"
-                  const fallback = document.createElement("h1")
-                  fallback.textContent = getTranslation(language, "appName")
-                  fallback.className = "text-4xl font-light text-black tracking-wide"
-                  e.currentTarget.parentNode?.appendChild(fallback)
-                }}
-              />
-            </div>
-            <p className="text-lg text-gray-500 font-light">{getTranslation(language, "tagline")}</p>
-          </div>
-
-          {/* Enter Button */}
-          <Button
-            onClick={handleEnterQi}
-            className="bg-black hover:bg-gray-900 text-white px-8 py-3 text-base font-normal rounded-none transition-colors duration-200 border border-black"
-            size="lg"
-          >
-            {getTranslation(language, "enter")}
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Welcome Screen
-  if (showWelcome) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-md w-full space-y-8 text-center animate-in fade-in-50 duration-500">
-          <div className="space-y-4">
-            <div className="w-24 h-24 mx-auto bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-700">
-              <FileText className="w-12 h-12 text-gray-600 dark:text-gray-400" />
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-foreground">Qi</h1>
-              <p className="text-muted-foreground text-lg">A quiet place to write</p>
-            </div>
-          </div>
-
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>Everything saves locally</span>
-            </div>
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>No cloud, no tracking</span>
-            </div>
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span>Zero distractions</span>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <p className="text-foreground font-medium">Welcome to Qi</p>
-            <p className="text-muted-foreground">Enter below</p>
-            <Button onClick={handleEnterQi} className="w-full" size="lg" type="button">
-              Enter Qi
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-
-          <div className="pt-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="text-muted-foreground"
-            >
-              {theme === "dark" ? (
-                <>
-                  <Sun className="w-4 h-4 mr-2" />
-                  Light Mode
-                </>
-              ) : (
-                <>
-                  <Moon className="w-4 h-4 mr-2" />
-                  Dark Mode
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (isLocked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center space-y-4 animate-in fade-in-50 duration-500">
-          <Lock className="w-16 h-16 mx-auto text-muted-foreground animate-in zoom-in-75 duration-700" />
-          <h1 className="text-2xl font-bold">Qi</h1>
-          <p className="text-muted-foreground">Your writing space is locked</p>
-          <Button onClick={() => setShowUnlockDialog(true)}>
-            <Unlock className="w-4 h-4 mr-2" />
-            Unlock
-          </Button>
-          <div className="pt-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="text-muted-foreground"
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {theme === "dark" ? (
-                <>
-                  <Sun className="w-4 h-4 mr-2" />
-                  Light Mode
-                </>
-              ) : (
-                <>
-                  <Moon className="w-4 h-4 mr-2" />
-                  Dark Mode
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
+              <div>
+                <h2 className="text-xl font-semibold">{t("enterPinTitle")}</h2>
+                <p className="text-sm text-muted-foreground mt-1">{t("enterPinDescription")}</p>
+              </div>
+              <div className="space-y-3">
+                <Input
+                  type="password"
+                  placeholder={t("enterPin")}
+                  value={enteredPin}
+                  onChange={(e) => setEnteredPin(e.target.value)}
+                  maxLength={4}
+                  className="text-center text-lg tracking-widest"
+                />
+                <Button onClick={handleUnlock} className="w-full" disabled={enteredPin.length !== 4}>
+                  {t("unlock")}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <PWAInstallPrompt />
-      <PWAUpdatePrompt />
-      <OfflineIndicator />
-
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <h1 className="text-xl font-bold">Qi</h1>
-            {isSaving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
-            {isOffline && (
-              <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 rounded-full flex items-center">
-                <WifiOff className="w-3 h-3 mr-1" />
-                Offline
-              </span>
-            )}
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+          {/* Left side - App name and status */}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <h1 className="text-xl font-bold">{t("appName")}</h1>
+              <Badge variant="secondary" className="text-xs">
+                {t("page")} {currentPage} {t("of")} {totalPages}
+              </Badge>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-2 overflow-x-auto sm:overflow-visible">
-            <Button variant="ghost" size="icon" onClick={handleGoHome} title="Go to landing page" type="button">
-              <Home className="w-4 h-4" />
-            </Button>
+          {/* Right side - All controls */}
+          <div className="flex items-center space-x-1">
+            {/* Language Selector */}
+            <Select value={language} onValueChange={handleLanguageChange}>
+              <SelectTrigger className="w-20 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">{translations.en.english}</SelectItem>
+                <SelectItem value="zh">{translations.zh.chinese}</SelectItem>
+              </SelectContent>
+            </Select>
 
-            {/* View Mode Toggle */}
-            <Button
-              variant={viewMode === "single" ? "default" : "ghost"}
-              size="icon"
-              type="button"
-              onClick={() => setViewMode("single")}
-              title="Single page view"
-            >
-              <SinglePage className="w-4 h-4" />
-            </Button>
-
-            <Button
-              variant={viewMode === "book" ? "default" : "ghost"}
-              size="icon"
-              type="button"
-              onClick={() => setViewMode("book")}
-              title="Book view (dual pages)"
-            >
-              <BookOpen className="w-4 h-4" />
-            </Button>
-
-            {/* Page Size Selector */}
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(e.target.value as "A4" | "Letter" | "A5")}
-              className="px-2 py-1 text-sm bg-background border border-border rounded"
-              title="Page size"
-            >
-              <option value="A4">A4</option>
-              <option value="Letter">Letter</option>
-              <option value="A5">A5</option>
-            </select>
-
-            {mounted && isTauri() && (
-              <Button
-                variant={showNativeFileSystem ? "default" : "ghost"}
-                size="icon"
-                type="button"
-                onClick={() => setShowNativeFileSystem(!showNativeFileSystem)}
-                title="Native file system"
-              >
-                <HardDrive className="w-4 h-4" />
-              </Button>
-            )}
-
+            {/* Navigation */}
             <Button
               variant="ghost"
-              size="icon"
-              type="button"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              title="Toggle theme"
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              size="sm"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
             >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-
-            <Button variant="ghost" size="icon" onClick={handleShare} title="Share app" type="button">
-              <Share2 className="w-4 h-4" />
-            </Button>
-
-            {/* Export Dropdown Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" title="Export options">
-                  <FileDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <div className="px-2 py-1.5 text-sm font-semibold">{getTranslation(language, "exportOptions")}</div>
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem onClick={() => handleExport("txt")}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  <div className="flex flex-col">
-                    <span>{getTranslation(language, "exportAsTxt")}</span>
-                    <span className="text-xs text-muted-foreground">{getTranslation(language, "exportAsTxtDesc")}</span>
-                  </div>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem onClick={() => handleExport("docx")}>
-                  <FileCheck className="w-4 h-4 mr-2" />
-                  <div className="flex flex-col">
-                    <span>{getTranslation(language, "exportAsDocx")}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {getTranslation(language, "exportAsDocxDesc")}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem onClick={() => handleExport("pdf")}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  <div className="flex flex-col">
-                    <span>{getTranslation(language, "exportAsPdf")}</span>
-                    <span className="text-xs text-muted-foreground">{getTranslation(language, "exportAsPdfDesc")}</span>
-                  </div>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem onClick={() => handleExport("epub")}>
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  <div className="flex flex-col">
-                    <span>{getTranslation(language, "exportAsEpub")}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {getTranslation(language, "exportAsEpubDesc")}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem onClick={handlePrint}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  <div className="flex flex-col">
-                    <span>{getTranslation(language, "printDocument")}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {getTranslation(language, "printDocumentDesc")}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem asChild>
-                  <label htmlFor="import-file" className="cursor-pointer flex items-center">
-                    <FileUp className="w-4 h-4 mr-2" />
-                    <div className="flex flex-col">
-                      <span>{getTranslation(language, "importFromFile")}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {getTranslation(language, "importFromFileDesc")}
-                      </span>
-                    </div>
-                    <input id="import-file" type="file" accept=".txt" onChange={handleImport} className="hidden" />
-                  </label>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             <Button
-              variant={timestampsEnabled ? "default" : "ghost"}
-              size="icon"
-              type="button"
-              onClick={() => setTimestampsEnabled(!timestampsEnabled)}
-              title="Toggle automatic timestamps"
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
             >
-              <Clock className="w-4 h-4" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
 
-            {timestampsEnabled && (
-              <select
-                value={timestampFormat}
-                onChange={(e) => setTimestampFormat(e.target.value as "datetime" | "time" | "date")}
-                className="px-2 py-1 text-sm bg-background border border-border rounded"
-                title={getTranslation(language, "timestampFormat")}
-              >
-                <option value="datetime">{getTranslation(language, "timestampFormats.datetime")}</option>
-                <option value="date">{getTranslation(language, "timestampFormats.date")}</option>
-                <option value="time">{getTranslation(language, "timestampFormats.time")}</option>
-              </select>
-            )}
+            <Separator orientation="vertical" className="h-6" />
 
-            <Button variant="ghost" size="icon" onClick={handleLock} title="Lock writing space" type="button">
-              <Lock className="w-4 h-4" />
+            {/* View Mode */}
+            <Button variant="ghost" size="sm">
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm">
+              <BookOpen className="h-4 w-4" />
             </Button>
 
-            {/* Language Selector */}
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
-              className="px-2 py-1 text-sm bg-background border border-border rounded"
-              title={getTranslation(language, "language")}
+            {/* Page Size */}
+            <Select defaultValue="a4">
+              <SelectTrigger className="w-16 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="a4">A4</SelectItem>
+                <SelectItem value="letter">Letter</SelectItem>
+                <SelectItem value="legal">Legal</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Theme Toggle */}
+            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+
+            {/* Share */}
+            <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("shareTitle")}</DialogTitle>
+                  <DialogDescription>{t("shareDescription")}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Button className="w-full bg-transparent" variant="outline">
+                    {t("shareOnTwitter")}
+                  </Button>
+                  <Button className="w-full bg-transparent" variant="outline">
+                    {t("shareOnFacebook")}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Export Options */}
+            <Select
+              onValueChange={(value) => {
+                switch (value) {
+                  case "txt":
+                    exportAsText()
+                    break
+                  case "docx":
+                    exportAsDocx()
+                    break
+                  case "pdf":
+                    exportAsPdf()
+                    break
+                  case "print":
+                    window.print()
+                    break
+                  case "import":
+                    importFromFile()
+                    break
+                }
+              }}
             >
-              <option value="en">{getTranslation(language, "english")}</option>
-              <option value="zh">{getTranslation(language, "chinese")}</option>
-            </select>
+              <SelectTrigger className="w-10 h-9">
+                <Download className="h-4 w-4" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="txt">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{t("exportAsTxt")}</div>
+                      <div className="text-xs text-muted-foreground">{t("exportAsTxtDesc")}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="docx">
+                  <div className="flex items-center space-x-2">
+                    <FileDown className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{t("exportAsDocx")}</div>
+                      <div className="text-xs text-muted-foreground">{t("exportAsDocxDesc")}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="pdf">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{t("exportAsPdf")}</div>
+                      <div className="text-xs text-muted-foreground">{t("exportAsPdfDesc")}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="print">
+                  <div className="flex items-center space-x-2">
+                    <Printer className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{t("printDocument")}</div>
+                      <div className="text-xs text-muted-foreground">{t("printDocumentDesc")}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="import">
+                  <div className="flex items-center space-x-2">
+                    <Upload className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{t("importFromFile")}</div>
+                      <div className="text-xs text-muted-foreground">{t("importFromFileDesc")}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Timestamp Format */}
+            <Select value={timestampFormat} onValueChange={(value: TimestampFormat) => setTimestampFormat(value)}>
+              <SelectTrigger className="w-10 h-9">
+                <Clock className="h-4 w-4" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="datetime">{t("timestampFormats.datetime")}</SelectItem>
+                <SelectItem value="date">{t("timestampFormats.date")}</SelectItem>
+                <SelectItem value="time">{t("timestampFormats.time")}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Lock */}
+            <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" onClick={pin ? handleLock : undefined}>
+                  <Lock className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("setPinTitle")}</DialogTitle>
+                  <DialogDescription>{t("setPinDescription")}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Input
+                    type="password"
+                    placeholder={t("enterPin")}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    maxLength={4}
+                    className="text-center text-lg tracking-widest"
+                  />
+                  <Button onClick={handleSetPin} className="w-full" disabled={pin.length !== 4}>
+                    {t("setPin")}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        {viewMode === "single" ? (
-          /* Single Page View */
-          <div className="space-y-8">
-            {/* Page Navigation */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-muted-foreground">
-                  {getTranslation(language, "page")} {currentPage + 1} {getTranslation(language, "of")} {pages.length}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {getCurrentPageSize().width} × {getCurrentPageSize().height} ({pageSize})
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                  disabled={currentPage === 0}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.min(pages.length - 1, currentPage + 1))}
-                  disabled={currentPage === pages.length - 1}
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Single Page */}
-            <div className="flex justify-center">
-              <div
-                className={`${getCurrentPageSize().className} min-h-[297mm] bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative`}
-                style={{
-                  aspectRatio: pageSize === "A4" ? "210/297" : pageSize === "Letter" ? "8.5/11" : "148/210",
-                }}
-              >
-                <textarea
-                  ref={(el) => {
-                    pageRefs.current[currentPage] = el
-                  }}
-                  value={pages[currentPage]?.content || ""}
-                  onChange={(e) => {
-                    const newPages = [...pages]
-                    newPages[currentPage] = {
-                      ...newPages[currentPage],
-                      content: e.target.value,
-                      wordCount: countWords(e.target.value),
-                    }
-                    setPages(newPages)
-
-                    // Auto-create new page if current page is full
-                    if (shouldCreateNewPage(e.target.value) && currentPage === pages.length - 1) {
-                      const newPage = { id: String(pages.length + 1), content: "", wordCount: 0 }
-                      setPages([...newPages, newPage])
-                    }
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    timestampsEnabled
-                      ? getTranslation(language, "startWritingTimestamps")
-                      : getTranslation(language, "startWriting")
-                  }
-                  className="w-full h-full resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground text-sm leading-relaxed"
-                  style={{
-                    fontFamily:
-                      "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
-                  }}
-                  aria-label={`Page ${currentPage + 1} writing space`}
-                />
-
-                {/* Page Number */}
-                <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">{currentPage + 1}</div>
-
-                {/* Word Count */}
-                <div className="absolute bottom-4 left-4 text-xs text-muted-foreground">
-                  {pages[currentPage]?.wordCount || 0} words
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Previous Content Display */}
+          {timestampedContent.length > 0 && (
+            <div className="space-y-6 mb-8">
+              {timestampedContent.map((item) => (
+                <div key={item.id} className="space-y-2">
+                  <div className="text-sm text-muted-foreground font-medium">{formatTimestamp(item.timestamp)}</div>
+                  <div className="whitespace-pre-wrap text-foreground leading-relaxed">{item.content}</div>
                 </div>
-              </div>
+              ))}
             </div>
+          )}
+
+          {/* Current Writing Area */}
+          <div className="space-y-4">
+            <Textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder={timestampedContent.length > 0 ? t("continueWriting") : t("startWritingTimestamps")}
+              className="min-h-[400px] resize-none border-0 shadow-none text-base leading-relaxed focus-visible:ring-0 p-0"
+              style={{ fontSize: "16px", lineHeight: "1.6" }}
+            />
+
+            {content && (
+              <div className="flex justify-end">
+                <Button onClick={addTimestamp} variant="outline" size="sm">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Add Timestamp (Ctrl+T)
+                </Button>
+              </div>
+            )}
           </div>
-        ) : (
-          /* Book View */
-          <div className="space-y-8">
-            {/* Book Navigation */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-muted-foreground">
-                  {getTranslation(language, "pages")} {currentBookPage + 1}-
-                  {Math.min(currentBookPage + 2, pages.length)} {getTranslation(language, "of")} {pages.length}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {getCurrentPageSize().width} × {getCurrentPageSize().height} ({pageSize})
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentBookPage(Math.max(0, currentBookPage - 2))}
-                  disabled={currentBookPage === 0}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setCurrentBookPage(Math.min(pages.length - 1, currentBookPage + 2))}
-                  disabled={currentBookPage >= pages.length - 1}
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Book Pages (Side by Side) */}
-            <div className="flex justify-center space-x-4">
-              {/* Left Page */}
-              <div
-                className={`${getCurrentPageSize().className} min-h-[297mm] bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative`}
-                style={{
-                  aspectRatio: pageSize === "A4" ? "210/297" : pageSize === "Letter" ? "8.5/11" : "148/210",
-                }}
-              >
-                <textarea
-                  ref={(el) => {
-                    pageRefs.current[currentBookPage] = el
-                  }}
-                  value={pages[currentBookPage]?.content || ""}
-                  onChange={(e) => {
-                    const newPages = [...pages]
-                    newPages[currentBookPage] = {
-                      ...newPages[currentBookPage],
-                      content: e.target.value,
-                      wordCount: countWords(e.target.value),
-                    }
-                    setPages(newPages)
-
-                    // Auto-create new page if current page is full
-                    if (shouldCreateNewPage(e.target.value) && currentBookPage === pages.length - 1) {
-                      const newPage = { id: String(pages.length + 1), content: "", wordCount: 0 }
-                      setPages([...newPages, newPage])
-                    }
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder={getTranslation(language, "startWriting")}
-                  className="w-full h-full resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground text-sm leading-relaxed"
-                  style={{
-                    fontFamily:
-                      "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
-                  }}
-                  aria-label={`Page ${currentBookPage + 1} writing space`}
-                />
-
-                {/* Page Number */}
-                <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">{currentBookPage + 1}</div>
-
-                {/* Word Count */}
-                <div className="absolute bottom-4 left-4 text-xs text-muted-foreground">
-                  {pages[currentBookPage]?.wordCount || 0} words
-                </div>
-              </div>
-
-              {/* Right Page */}
-              {currentBookPage + 1 < pages.length && (
-                <div
-                  className={`${getCurrentPageSize().className} min-h-[297mm] bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative`}
-                  style={{
-                    aspectRatio: pageSize === "A4" ? "210/297" : pageSize === "Letter" ? "8.5/11" : "148/210",
-                  }}
-                >
-                  <textarea
-                    ref={(el) => {
-                      pageRefs.current[currentBookPage + 1] = el
-                    }}
-                    value={pages[currentBookPage + 1]?.content || ""}
-                    onChange={(e) => {
-                      const newPages = [...pages]
-                      newPages[currentBookPage + 1] = {
-                        ...newPages[currentBookPage + 1],
-                        content: e.target.value,
-                        wordCount: countWords(e.target.value),
-                      }
-                      setPages(newPages)
-
-                      // Auto-create new page if current page is full
-                      if (shouldCreateNewPage(e.target.value) && currentBookPage + 1 === pages.length - 1) {
-                        const newPage = { id: String(pages.length + 1), content: "", wordCount: 0 }
-                        setPages([...newPages, newPage])
-                      }
-                    }}
-                    onKeyDown={handleKeyDown}
-                    placeholder={getTranslation(language, "continueWriting")}
-                    className="w-full h-full resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground text-sm leading-relaxed"
-                    style={{
-                      fontFamily:
-                        "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
-                    }}
-                    aria-label={`Page ${currentBookPage + 2} writing space`}
-                  />
-
-                  {/* Page Number */}
-                  <div className="absolute bottom-4 right-4 text-xs text-muted-foreground">{currentBookPage + 2}</div>
-
-                  {/* Word Count */}
-                  <div className="absolute bottom-4 left-4 text-xs text-muted-foreground">
-                    {pages[currentBookPage + 1]?.wordCount || 0} words
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        </div>
       </main>
-
-      {/* Set PIN Dialog */}
-      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{getTranslation(language, "setPinTitle")}</DialogTitle>
-            <DialogDescription>
-              {isSettingPin
-                ? getTranslation(language, "setPinDescription")
-                : getTranslation(language, "enterPinDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              type="password"
-              placeholder={getTranslation(language, "enterPin")}
-              value={inputPin}
-              onChange={(e) => setInputPin(e.target.value.slice(0, 4))}
-              onKeyDown={handlePinKeyDown}
-              maxLength={4}
-              className="text-center text-2xl tracking-widest"
-              autoFocus
-              inputMode="numeric"
-              pattern="[0-9]*"
-            />
-            <Button onClick={handleSetPin} className="w-full" disabled={inputPin.length !== 4}>
-              {getTranslation(language, "setPin")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Unlock Dialog */}
-      <Dialog open={showUnlockDialog} onOpenChange={setShowUnlockDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{getTranslation(language, "enterPinTitle")}</DialogTitle>
-            <DialogDescription>{getTranslation(language, "enterPinDescription")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input
-              type="password"
-              placeholder="Enter PIN"
-              value={inputPin}
-              onChange={(e) => setInputPin(e.target.value.slice(0, 4))}
-              onKeyDown={handlePinKeyDown}
-              maxLength={4}
-              className="text-center text-2xl tracking-widest"
-              autoFocus
-              inputMode="numeric"
-              pattern="[0-9]*"
-            />
-            <Button onClick={handleUnlock} className="w-full" disabled={inputPin.length !== 4}>
-              {getTranslation(language, "unlock")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Share Dialog */}
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{getTranslation(language, "shareTitle")}</DialogTitle>
-            <DialogDescription>{getTranslation(language, "shareDescription")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
-              <input
-                type="text"
-                value={window.location.href}
-                readOnly
-                className="flex-1 bg-transparent border-none outline-none text-sm"
-              />
-              <Button variant="outline" size="sm" onClick={copyToClipboard} className="shrink-0 bg-transparent">
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </Button>
-            </div>
-            <div className="flex space-x-2">
-              <Button
-                onClick={() =>
-                  window.open(
-                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(getTranslation(language, "shareDescription"))}&url=${encodeURIComponent(window.location.href)}`,
-                    "_blank",
-                  )
-                }
-                className="flex-1"
-              >
-                {getTranslation(language, "shareOnTwitter")}
-              </Button>
-              <Button
-                onClick={() =>
-                  window.open(
-                    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`,
-                    "_blank",
-                  )
-                }
-                className="flex-1"
-              >
-                {getTranslation(language, "shareOnFacebook")}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
