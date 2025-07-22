@@ -1,8 +1,23 @@
+"use client"
+
 import { ArrowLeft, FileText, Shield, Zap, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { getTranslation, type Language } from "@/lib/translations"
+import { useState, useEffect } from "react"
 
 export default function AboutPage() {
+  const [language, setLanguage] = useState<Language>("en")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    const savedLanguage = localStorage.getItem("qi-language")
+    if (savedLanguage) setLanguage(savedLanguage as Language)
+  }, [])
+
+  if (!mounted) return null
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -12,14 +27,24 @@ export default function AboutPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold">One Page Binder</h1>
+            <h1 className="text-xl font-bold">{getTranslation(language, "appName")}</h1>
           </div>
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to App
-            </Button>
-          </Link>
+          <div className="flex items-center space-x-4">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as Language)}
+              className="px-2 py-1 text-sm bg-background border border-border rounded"
+            >
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+            </select>
+            <Link href="/">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {getTranslation(language, "backToApp")}
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -40,9 +65,10 @@ export default function AboutPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Our Mission</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              In a world where most writing tools require cloud accounts, internet connections, and complex setups, 
-              One Page Binder was created to provide a simple, private, and reliable alternative. We believe that 
-              the best writing tool should be one that gets out of your way and lets you focus on what matters most - your thoughts.
+              In a world where most writing tools require cloud accounts, internet connections, and complex setups, One
+              Page Binder was created to provide a simple, private, and reliable alternative. We believe that the best
+              writing tool should be one that gets out of your way and lets you focus on what matters most - your
+              thoughts.
             </p>
           </div>
 
@@ -86,9 +112,9 @@ export default function AboutPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Built with Modern Technology</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              One Page Binder is built using Next.js, React, and TypeScript, ensuring a fast, reliable, 
-              and maintainable codebase. We use local storage for data persistence and modern web APIs 
-              for the best possible user experience.
+              One Page Binder is built using Next.js, React, and TypeScript, ensuring a fast, reliable, and maintainable
+              codebase. We use local storage for data persistence and modern web APIs for the best possible user
+              experience.
             </p>
           </div>
 
@@ -96,8 +122,8 @@ export default function AboutPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Open Source</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              We believe in transparency and community. One Page Binder is open source, meaning you can 
-              inspect the code, contribute improvements, or even run your own instance if you prefer.
+              We believe in transparency and community. One Page Binder is open source, meaning you can inspect the
+              code, contribute improvements, or even run your own instance if you prefer.
             </p>
           </div>
 
@@ -105,8 +131,8 @@ export default function AboutPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Get in Touch</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Have questions, suggestions, or want to contribute? We'd love to hear from you! 
-              Reach out to us through our GitHub repository or contact us directly.
+              Have questions, suggestions, or want to contribute? We'd love to hear from you! Reach out to us through
+              our GitHub repository or contact us directly.
             </p>
           </div>
         </div>

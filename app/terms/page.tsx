@@ -1,8 +1,12 @@
 import { ArrowLeft, FileText, Scale, Shield, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { getTranslation } from "@/lib/translation"
+import { getLanguage } from "@/lib/language"
 
 export default function TermsPage() {
+  const language = getLanguage()
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -12,7 +16,7 @@ export default function TermsPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold">One Page Binder</h1>
+            <h1 className="text-xl font-bold">{getTranslation(language, "appName")}</h1>
           </div>
           <Link href="/">
             <Button variant="ghost" size="sm">
@@ -40,8 +44,8 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Acceptance of Terms</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              By accessing and using One Page Binder, you accept and agree to be bound by the terms and provision of this agreement. 
-              If you do not agree to abide by the above, please do not use this service.
+              By accessing and using One Page Binder, you accept and agree to be bound by the terms and provision of
+              this agreement. If you do not agree to abide by the above, please do not use this service.
             </p>
           </div>
 
@@ -49,8 +53,9 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Service Description</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              One Page Binder is a minimalist writing tool that allows users to create, edit, and store text content locally on their devices. 
-              The service is provided "as is" and we make no warranties about the reliability or availability of the service.
+              One Page Binder is a minimalist writing tool that allows users to create, edit, and store text content
+              locally on their devices. The service is provided "as is" and we make no warranties about the reliability
+              or availability of the service.
             </p>
           </div>
 
@@ -64,8 +69,8 @@ export default function TermsPage() {
                 </div>
                 <h3 className="text-xl font-semibold">Data Backup</h3>
                 <p className="text-muted-foreground">
-                  You are responsible for backing up your own data. While we provide export functionality, 
-                  we cannot guarantee against data loss.
+                  You are responsible for backing up your own data. While we provide export functionality, we cannot
+                  guarantee against data loss.
                 </p>
               </div>
 
@@ -85,7 +90,8 @@ export default function TermsPage() {
                 </div>
                 <h3 className="text-xl font-semibold">No Harmful Content</h3>
                 <p className="text-muted-foreground">
-                  You agree not to use the service to create, store, or distribute harmful, illegal, or inappropriate content.
+                  You agree not to use the service to create, store, or distribute harmful, illegal, or inappropriate
+                  content.
                 </p>
               </div>
 
@@ -106,8 +112,8 @@ export default function TermsPage() {
             <h2 className="text-3xl font-bold">Limitations of Liability</h2>
             <div className="space-y-4">
               <p className="text-lg text-muted-foreground leading-relaxed">
-                One Page Binder is provided on an "as is" and "as available" basis. We disclaim all warranties, 
-                express or implied, including but not limited to:
+                One Page Binder is provided on an "as is" and "as available" basis. We disclaim all warranties, express
+                or implied, including but not limited to:
               </p>
               <ul className="space-y-2 text-lg text-muted-foreground">
                 <li className="flex items-start space-x-2">
@@ -134,9 +140,9 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Data Storage and Privacy</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Your data is stored locally on your device using your browser's localStorage. We do not have access to your content, 
-              and we do not store any of your data on our servers. Please refer to our Privacy Policy for more details about 
-              how we handle your data.
+              Your data is stored locally on your device using your browser's localStorage. We do not have access to
+              your content, and we do not store any of your data on our servers. Please refer to our Privacy Policy for
+              more details about how we handle your data.
             </p>
           </div>
 
@@ -144,8 +150,9 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Service Availability</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              While we strive to maintain high availability, we do not guarantee that the service will be available at all times. 
-              The service may be temporarily unavailable due to maintenance, updates, or other factors beyond our control.
+              While we strive to maintain high availability, we do not guarantee that the service will be available at
+              all times. The service may be temporarily unavailable due to maintenance, updates, or other factors beyond
+              our control.
             </p>
           </div>
 
@@ -153,8 +160,9 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Updates to Terms</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              We reserve the right to modify these terms at any time. We will notify users of any material changes by posting 
-              the updated terms on this page. Your continued use of the service after any changes constitutes acceptance of the updated terms.
+              We reserve the right to modify these terms at any time. We will notify users of any material changes by
+              posting the updated terms on this page. Your continued use of the service after any changes constitutes
+              acceptance of the updated terms.
             </p>
           </div>
 
@@ -162,7 +170,7 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Termination</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              You may stop using the service at any time. We may terminate or suspend access to the service immediately, 
+              You may stop using the service at any time. We may terminate or suspend access to the service immediately,
               without prior notice, for any reason, including if you breach these terms.
             </p>
           </div>
@@ -171,7 +179,7 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Governing Law</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              These terms shall be governed by and construed in accordance with the laws of the jurisdiction in which 
+              These terms shall be governed by and construed in accordance with the laws of the jurisdiction in which
               One Page Binder operates, without regard to its conflict of law provisions.
             </p>
           </div>
@@ -180,8 +188,8 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Contact Information</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              If you have any questions about these terms of service, please contact us through our GitHub repository 
-              or reach out to us directly. We're committed to transparency and will be happy to address any concerns.
+              If you have any questions about these terms of service, please contact us through our GitHub repository or
+              reach out to us directly. We're committed to transparency and will be happy to address any concerns.
             </p>
           </div>
 
@@ -189,8 +197,8 @@ export default function TermsPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Last Updated</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              These terms were last updated on January 1, 2024. We encourage you to review these terms periodically 
-              to stay informed about our practices.
+              These terms were last updated on January 1, 2024. We encourage you to review these terms periodically to
+              stay informed about our practices.
             </p>
           </div>
         </div>

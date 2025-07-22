@@ -1,8 +1,32 @@
+"use client"
+
 import { ArrowLeft, FileText, Shield, Eye, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { translations, getTranslation, type Language } from "@/lib/translations"
+import { useState, useEffect } from "react"
 
 export default function PrivacyPage() {
+  const [language, setLanguage] = useState<Language>("en")
+
+  useEffect(() => {
+    const storedLanguage = localStorage.getItem("language") as Language | null
+    if (storedLanguage) {
+      setLanguage(storedLanguage)
+    } else {
+      // Detect browser language if no language is stored
+      const browserLanguage = navigator.language.split("-")[0] as Language
+      if (translations[browserLanguage]) {
+        setLanguage(browserLanguage)
+        localStorage.setItem("language", browserLanguage)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem("language", language)
+  }, [language])
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -12,7 +36,7 @@ export default function PrivacyPage() {
             <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold">One Page Binder</h1>
+            <h1 className="text-xl font-bold">{getTranslation(language, "appName")}</h1>
           </div>
           <Link href="/">
             <Button variant="ghost" size="sm">
@@ -40,8 +64,8 @@ export default function PrivacyPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Our Privacy Commitment</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              At One Page Binder, we believe that your writing is personal and should remain private. 
-              We've designed our application with privacy as the foundation, not an afterthought.
+              At One Page Binder, we believe that your writing is personal and should remain private. We've designed our
+              application with privacy as the foundation, not an afterthought.
             </p>
           </div>
 
@@ -155,9 +179,9 @@ export default function PrivacyPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Updates to This Policy</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              We may update this privacy policy from time to time. Any changes will be posted on this page, 
-              and we encourage you to review it periodically. Your continued use of One Page Binder after 
-              any changes constitutes acceptance of the updated policy.
+              We may update this privacy policy from time to time. Any changes will be posted on this page, and we
+              encourage you to review it periodically. Your continued use of One Page Binder after any changes
+              constitutes acceptance of the updated policy.
             </p>
           </div>
 
@@ -165,8 +189,8 @@ export default function PrivacyPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">Questions About Privacy?</h2>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              If you have any questions about our privacy practices or this policy, please don't hesitate 
-              to reach out to us. We're committed to transparency and will be happy to address any concerns.
+              If you have any questions about our privacy practices or this policy, please don't hesitate to reach out
+              to us. We're committed to transparency and will be happy to address any concerns.
             </p>
           </div>
         </div>
