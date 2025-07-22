@@ -1,16 +1,18 @@
 import type { Language } from "./translations"
 
+const LANGUAGE_KEY = "qi-language"
+
 export function getLanguage(): Language {
   if (typeof window === "undefined") {
     return "en"
   }
 
-  const stored = localStorage.getItem("qi-language")
-  if (stored === "en" || stored === "zh") {
-    return stored
+  const saved = localStorage.getItem(LANGUAGE_KEY)
+  if (saved && (saved === "en" || saved === "zh")) {
+    return saved as Language
   }
 
-  // Auto-detect from browser language
+  // Detect browser language
   const browserLang = navigator.language.toLowerCase()
   if (browserLang.startsWith("zh")) {
     return "zh"
@@ -21,6 +23,6 @@ export function getLanguage(): Language {
 
 export function setLanguage(language: Language): void {
   if (typeof window !== "undefined") {
-    localStorage.setItem("qi-language", language)
+    localStorage.setItem(LANGUAGE_KEY, language)
   }
 }

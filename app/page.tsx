@@ -1,192 +1,358 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
-  ExternalLink,
-  BookOpen,
-  FileText,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import {
   Moon,
   Sun,
-  Share2,
-  Download,
-  Clock,
   Lock,
-  ChevronLeft,
-  ChevronRight,
-  Printer,
+  Unlock,
+  FileText,
+  Clock,
+  ArrowRight,
+  WifiOff,
+  HardDrive,
+  Share2,
+  Copy,
+  Check,
   FileDown,
-  Upload,
+  FileUp,
+  Printer,
+  FileCheck,
+  Home,
+  BookOpen,
+  SplitIcon as SinglePage,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { exportToDocx } from "@/lib/docx-export"
-import { getTranslation, type Language } from "@/lib/translation"
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
+import { PWAUpdatePrompt } from "@/components/pwa-update-prompt"
+import { OfflineIndicator } from "@/components/offline-indicator"
+import { isTauri } from "@/lib/tauri-api"
+import { getTranslation, type Language } from "@/lib/translations"
 import { getLanguage, setLanguage } from "@/lib/language"
-import { translations } from "@/lib/translations"
 
-const CHARS_PER_PAGE = 2000
-const LINES_PER_PAGE = 50
-
-interface TimestampedContent {
-  id: string
-  content: string
-  timestamp: Date
-}
-
-type TimestampFormat = "datetime" | "date" | "time"
-
-export default function QiApp() {
+export default function Qi() {
   const [content, setContent] = useState("")
-  const [timestampedContent, setTimestampedContent] = useState<TimestampedContent[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
   const [isLocked, setIsLocked] = useState(false)
   const [pin, setPin] = useState("")
-  const [enteredPin, setEnteredPin] = useState("")
+  const [inputPin, setInputPin] = useState("")
   const [showPinDialog, setShowPinDialog] = useState(false)
   const [showUnlockDialog, setShowUnlockDialog] = useState(false)
+  const [isSettingPin, setIsSettingPin] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [showLanding, setShowLanding] = useState(true)
+  const [copied, setCopied] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  const [timestampFormat, setTimestampFormat] = useState<TimestampFormat>("datetime")
-  const [language, setLanguageState] = useState<Language>("en")
-  const [mounted, setMounted] = useState(false)
+  const [showShortcutsDialog, setShowShortcutsDialog] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportFormat, setExportFormat] = useState<"txt" | "docx" | "pdf" | "epub">("txt")
+  const [exportRange, setExportRange] = useState<"all" | "current" | "range">("all")
+  const [exportStartPage, setExportStartPage] = useState(1)
+  const [exportEndPage, setExportEndPage] = useState(1)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  const [timestampsEnabled, setTimestampsEnabled] = useState(false)
+  const [lastTypingTime, setLastTypingTime] = useState(0)
+  const [timestampFormat, setTimestampFormat] = useState<"datetime" | "time" | "date">("datetime")
+  const [isOffline, setIsOffline] = useState(false)
+  const [showNativeFileSystem, setShowNativeFileSystem] = useState(false)
 
-  const t = (key: string) => getTranslation(language, key)
+  // Language state
+  const [language, setLanguageState] = useState<Language>("en")
 
+  // Page-based writing system state
+  const [viewMode, setViewMode] = useState<"single" | "book">("single")
+  const [pageSize, setPageSize] = useState<"A4" | "Letter" | "A5">("A4")
+  const [pages, setPages] = useState<Array<{ id: string; content: string; wordCount: number }>>([
+    { id: "1", content: "", wordCount: 0 },
+  ])
+  const [currentPage, setCurrentPage] = useState(0)
+  const [currentBookPage, setCurrentBookPage] = useState(0) // For book view (shows pages currentBookPage and currentBookPage+1)
+  const pageRefs = useRef<(HTMLTextAreaElement | null)[]>([])
+
+  // Page size configurations
+  const pageSizes = {
+    A4: {
+      width: "210mm",
+      height: "297mm",
+      wordsPerPage: 325,
+      linesPerPage: 30,
+      className: "w-[800px] h-[1131px]", // A4 ratio scaled up for better screen viewing
+    },
+    Letter: {
+      width: "8.5in",
+      height: "11in",
+      wordsPerPage: 300,
+      linesPerPage: 28,
+      className: "w-[800px] h-[1035px]", // Letter ratio scaled up for better screen viewing
+    },
+    A5: {
+      width: "148mm",
+      height: "210mm",
+      wordsPerPage: 200,
+      linesPerPage: 22,
+      className: "w-[600px] h-[849px]", // A5 ratio scaled up for better screen viewing
+    },
+  }
+
+  // Helper functions for page management
+  const countWords = (text: string) => {
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length
+  }
+
+  const getCurrentPageSize = () => pageSizes[pageSize]
+
+  const shouldCreateNewPage = (content: string) => {
+    const wordCount = countWords(content)
+    const currentPageSize = getCurrentPageSize()
+    return wordCount >= currentPageSize.wordsPerPage
+  }
+
+  // Ensure component is mounted before accessing theme
   useEffect(() => {
     setMounted(true)
+
+    // Initialize language
     const savedLanguage = getLanguage()
     setLanguageState(savedLanguage)
 
-    const savedContent = localStorage.getItem("qi-content")
-    const savedTimestampedContent = localStorage.getItem("qi-timestamped-content")
-    const savedPin = localStorage.getItem("qi-pin")
-    const savedLocked = localStorage.getItem("qi-locked")
-    const savedTimestampFormat = localStorage.getItem("qi-timestamp-format")
+    // Check online status
+    setIsOffline(!navigator.onLine)
 
-    if (savedContent) setContent(savedContent)
-    if (savedTimestampedContent) {
-      try {
-        const parsed = JSON.parse(savedTimestampedContent)
-        setTimestampedContent(
-          parsed.map((item: any) => ({
-            ...item,
-            timestamp: new Date(item.timestamp),
-          })),
-        )
-      } catch (e) {
-        console.error("Failed to parse timestamped content:", e)
-      }
+    // Listen for online/offline events
+    const handleOffline = () => setIsOffline(true)
+    const handleOnline = () => setIsOffline(false)
+
+    window.addEventListener("offline", handleOffline)
+    window.addEventListener("online", handleOnline)
+
+    return () => {
+      window.removeEventListener("offline", handleOffline)
+      window.removeEventListener("online", handleOnline)
     }
-    if (savedPin) setPin(savedPin)
-    if (savedLocked === "true") setIsLocked(true)
-    if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat as TimestampFormat)
   }, [])
 
+  // Load data from localStorage on mount
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("qi-content", content)
+    const savedContent = localStorage.getItem("qi-content")
+    const savedPin = localStorage.getItem("qi-pin")
+    const savedLockState = localStorage.getItem("qi-locked")
+    const savedTimestamps = localStorage.getItem("qi-timestamps")
+    const savedTimestampFormat = localStorage.getItem("qi-timestamp-format")
+    const hasVisited = localStorage.getItem("qi-visited")
+
+    if (savedContent) setContent(savedContent)
+    if (savedPin) setPin(savedPin)
+    if (savedLockState === "true") {
+      setIsLocked(true)
+      setShowUnlockDialog(true)
     }
-  }, [content, mounted])
+    if (savedTimestamps) setTimestampsEnabled(savedTimestamps === "true")
+    if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat as "datetime" | "time" | "date")
+    if (hasVisited) {
+      setShowWelcome(false)
+      setShowLanding(false)
+    }
+  }, [])
+
+  // Auto-save content with visual indicator
+  useEffect(() => {
+    if (content !== "") {
+      setIsSaving(true)
+      const saveTimeout = setTimeout(() => {
+        try {
+          localStorage.setItem("qi-content", content)
+          setIsSaving(false)
+        } catch (error) {
+          console.error("Error saving to localStorage:", error)
+          setIsSaving(false)
+        }
+      }, 500)
+
+      return () => clearTimeout(saveTimeout)
+    }
+  }, [content])
+
+  // Save timestamp preferences
+  useEffect(() => {
+    localStorage.setItem("qi-timestamps", timestampsEnabled.toString())
+  }, [timestampsEnabled])
 
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("qi-timestamped-content", JSON.stringify(timestampedContent))
-    }
-  }, [timestampedContent, mounted])
+    localStorage.setItem("qi-timestamp-format", timestampFormat)
+  }, [timestampFormat])
 
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("qi-timestamp-format", timestampFormat)
-    }
-  }, [timestampFormat, mounted])
-
+  // Handle language changes
   const handleLanguageChange = (newLanguage: Language) => {
     setLanguageState(newLanguage)
     setLanguage(newLanguage)
   }
 
-  const formatTimestamp = (date: Date) => {
-    const options: Intl.DateTimeFormatOptions =
-      timestampFormat === "datetime"
-        ? { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
-        : timestampFormat === "date"
-          ? { year: "numeric", month: "short", day: "numeric" }
-          : { hour: "2-digit", minute: "2-digit" }
-
-    return date.toLocaleDateString(language === "zh" ? "zh-CN" : "en-US", options)
-  }
-
-  const addTimestamp = useCallback(() => {
-    const now = new Date()
-    const newEntry: TimestampedContent = {
-      id: Date.now().toString(),
-      content: content,
-      timestamp: now,
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto"
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px"
     }
-    setTimestampedContent((prev) => [...prev, newEntry])
-    setContent("")
   }, [content])
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "t") {
-        e.preventDefault()
-        addTimestamp()
+  const formatTimestamp = (format: "datetime" | "time" | "date") => {
+    const now = new Date()
+    switch (format) {
+      case "datetime":
+        return now.toLocaleString()
+      case "time":
+        return now.toLocaleTimeString()
+      case "date":
+        return now.toLocaleDateString()
+      default:
+        return now.toLocaleString()
+    }
+  }
+
+  const insertTimestamp = () => {
+    const timestamp = `[${formatTimestamp(timestampFormat)}] `
+    const textarea = textareaRef.current
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newContent = content.slice(0, start) + timestamp + content.slice(end)
+      setContent(newContent)
+
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + timestamp.length
+        textarea.focus()
+      }, 0)
+    }
+  }
+
+  const shouldAutoInsertTimestamp = () => {
+    const now = Date.now()
+    const timeSinceLastTyping = now - lastTypingTime
+    return timestampsEnabled && timeSinceLastTyping > 300000 && lastTypingTime !== 0
+  }
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value
+    const now = Date.now()
+
+    if (shouldAutoInsertTimestamp() && newContent.length > content.length) {
+      const timestamp = `\n[${formatTimestamp(timestampFormat)}] `
+      const textarea = textareaRef.current
+      if (textarea) {
+        const cursorPos = textarea.selectionStart
+        const beforeCursor = newContent.slice(0, cursorPos)
+        const afterCursor = newContent.slice(cursorPos)
+        const contentWithTimestamp = beforeCursor + timestamp + afterCursor
+        setContent(contentWithTimestamp)
+
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = cursorPos + timestamp.length
+        }, 0)
       }
-    },
-    [addTimestamp],
-  )
+    } else {
+      setContent(newContent)
+    }
 
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+    setLastTypingTime(now)
+  }
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(
-      (content.length + timestampedContent.reduce((acc, item) => acc + item.content.length, 0)) / CHARS_PER_PAGE,
-    ),
-  )
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Timestamp shortcut
+    if ((e.ctrlKey || e.metaKey) && e.key === "t") {
+      e.preventDefault()
+      insertTimestamp()
+    }
 
-  const getPageContent = (pageNum: number) => {
-    const allContent =
-      timestampedContent.map((item) => `${formatTimestamp(item.timestamp)}\n${item.content}`).join("\n\n") +
-      (content ? `\n\n${content}` : "")
+    // Save shortcut (Ctrl/Cmd + S)
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault()
+      // Content is already auto-saved, just show a brief indicator
+      setIsSaving(true)
+      setTimeout(() => setIsSaving(false), 500)
+    }
 
-    const startChar = (pageNum - 1) * CHARS_PER_PAGE
-    const endChar = pageNum * CHARS_PER_PAGE
-    return allContent.slice(startChar, endChar)
+    // Export shortcut (Ctrl/Cmd + E)
+    if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+      e.preventDefault()
+      handleExport("txt")
+    }
+
+    // Lock shortcut (Ctrl/Cmd + L)
+    if ((e.ctrlKey || e.metaKey) && e.key === "l") {
+      e.preventDefault()
+      handleLock()
+    }
+
+    // Auto-timestamp on double enter
+    if (e.key === "Enter" && timestampsEnabled) {
+      const textarea = textareaRef.current
+      if (textarea) {
+        const cursorPos = textarea.selectionStart
+        const beforeCursor = content.slice(0, cursorPos)
+        const lastTwoChars = beforeCursor.slice(-2)
+
+        if (lastTwoChars === "\n\n" || (beforeCursor.endsWith("\n") && beforeCursor.slice(-3, -1) === "\n\n")) {
+          setTimeout(() => {
+            insertTimestamp()
+          }, 0)
+        }
+      }
+    }
+  }
+
+  const handleEnterQi = () => {
+    setShowWelcome(false)
+    setShowLanding(false)
+    localStorage.setItem("qi-visited", "true")
+  }
+
+  const handleGoHome = () => {
+    setShowLanding(true)
+    setShowWelcome(false)
   }
 
   const handleSetPin = () => {
-    if (pin.length === 4) {
-      localStorage.setItem("qi-pin", pin)
+    if (inputPin.length === 4 && /^\d{4}$/.test(inputPin)) {
+      setPin(inputPin)
+      localStorage.setItem("qi-pin", inputPin)
+      setInputPin("")
       setShowPinDialog(false)
+      setIsSettingPin(false)
+    }
+  }
+
+  const handlePinKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      if (isSettingPin) {
+        handleSetPin()
+      } else {
+        handleUnlock()
+      }
     }
   }
 
   const handleUnlock = () => {
-    if (enteredPin === pin) {
+    if (inputPin === pin) {
       setIsLocked(false)
       localStorage.setItem("qi-locked", "false")
+      setInputPin("")
       setShowUnlockDialog(false)
-      setEnteredPin("")
     }
   }
 
@@ -195,339 +361,683 @@ export default function QiApp() {
       setIsLocked(true)
       localStorage.setItem("qi-locked", "true")
     } else {
+      setIsSettingPin(true)
       setShowPinDialog(true)
     }
   }
 
-  const exportAsText = () => {
-    const allContent =
-      timestampedContent.map((item) => `${formatTimestamp(item.timestamp)}\n${item.content}`).join("\n\n") +
-      (content ? `\n\n${content}` : "")
+  const handleExport = async (format: "txt" | "docx" | "pdf" | "epub" = "txt") => {
+    const timestamp = new Date().toISOString().split("T")[0]
 
-    const blob = new Blob([allContent], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "qi-writing.txt"
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+    // Get content based on export range
+    let exportContent = ""
+    let exportPages: typeof pages = []
 
-  const exportAsDocx = async () => {
-    const allContent =
-      timestampedContent.map((item) => `${formatTimestamp(item.timestamp)}\n${item.content}`).join("\n\n") +
-      (content ? `\n\n${content}` : "")
+    if (exportRange === "all") {
+      exportPages = pages
+      exportContent = pages.map((page) => page.content).join("\n\n--- Page Break ---\n\n")
+    } else if (exportRange === "current") {
+      exportPages = [pages[currentPage]]
+      exportContent = pages[currentPage]?.content || ""
+    } else if (exportRange === "range") {
+      const startIdx = Math.max(0, exportStartPage - 1)
+      const endIdx = Math.min(pages.length - 1, exportEndPage - 1)
+      exportPages = pages.slice(startIdx, endIdx + 1)
+      exportContent = exportPages
+        .map((page, idx) => `--- Page ${startIdx + idx + 1} ---\n\n${page.content}`)
+        .join("\n\n--- Page Break ---\n\n")
+    }
 
-    await exportToDocx(allContent, "qi-writing.docx")
-  }
+    const totalWords = exportPages.reduce((sum, page) => sum + page.wordCount, 0)
+    const bookTitle =
+      exportContent
+        .split("\n")[0]
+        ?.replace(/[^\w\s]/gi, "")
+        .trim()
+        .slice(0, 50) || "Qi Document"
 
-  const exportAsPdf = () => {
-    window.print()
-  }
+    if (format === "txt") {
+      const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.txt`
+      const txtContent = `${bookTitle}\n${"=".repeat(bookTitle.length)}\n\nExported from Qi - A quiet place to write\nDate: ${new Date().toLocaleDateString()}\nPages: ${exportPages.length}\nTotal Words: ${totalWords}\n\n${"-".repeat(50)}\n\n${exportContent}`
 
-  const importFromFile = () => {
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = ".txt"
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const text = e.target?.result as string
-          setContent((prev) => prev + (prev ? "\n\n" : "") + text)
-        }
-        reader.readAsText(file)
+      try {
+        const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = filename
+        a.style.display = "none"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (error) {
+        console.error("Export failed:", error)
+        const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(txtContent)
+        const downloadAnchorNode = document.createElement("a")
+        downloadAnchorNode.setAttribute("href", dataStr)
+        downloadAnchorNode.setAttribute("download", filename)
+        document.body.appendChild(downloadAnchorNode)
+        downloadAnchorNode.click()
+        downloadAnchorNode.remove()
+      }
+    } else if (format === "docx") {
+      try {
+        // Dynamic import to avoid SSR issues
+        const { exportToDocx } = await import("@/lib/docx-export")
+        const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.docx`
+        await exportToDocx(exportContent, filename)
+      } catch (error) {
+        console.error("DOCX export failed:", error)
+        // Fallback to HTML export
+        const filename = `${bookTitle.replace(/\s+/g, "-").toLowerCase()}-${timestamp}.html`
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>${bookTitle}</title>
+            <style>
+              @page {
+                size: ${pageSize === "A4" ? "A4" : pageSize === "Letter" ? "letter" : "A5"};
+                margin: 1in;
+              }
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                max-width: 8.5in;
+                margin: 0 auto;
+                padding: 1in;
+                white-space: pre-wrap;
+              }
+              h1 {
+                text-align: center;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+                margin-bottom: 30px;
+              }
+              .page-break {
+                page-break-before: always;
+                border-top: 1px dashed #ccc;
+                padding-top: 20px;
+                margin-top: 20px;
+              }
+              .metadata {
+                font-size: 0.9em;
+                color: #666;
+                margin-bottom: 30px;
+                text-align: center;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>${bookTitle}</h1>
+            <div class="metadata">
+              Exported from Qi - A quiet place to write<br>
+              Date: ${new Date().toLocaleDateString()}<br>
+              Pages: ${exportPages.length} | Words: ${totalWords}
+            </div>
+            <div>${exportContent.replace(/--- Page Break ---/g, '<div class="page-break"></div>').replace(/\n/g, "<br>")}</div>
+          </body>
+          </html>
+        `
+
+        const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = filename
+        a.style.display = "none"
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
       }
     }
-    input.click()
+  }
+
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && file.type === "text/plain") {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        setContent(text)
+      }
+      reader.readAsText(file)
+    }
+    event.target.value = ""
+  }
+
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank")
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Qi</title>
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                max-width: 8.5in;
+                margin: 0 auto;
+                padding: 1in;
+                white-space: pre-wrap;
+              }
+              h1 {
+                text-align: center;
+                border-bottom: 2px solid #333;
+                padding-bottom: 10px;
+                margin-bottom: 30px;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Qi</h1>
+            <div>${content.replace(/\n/g, "<br>")}</div>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.print()
+    }
+  }
+
+  const handleShare = async () => {
+    // Check if Web Share API is available and allowed
+    if (navigator.share && window.isSecureContext) {
+      try {
+        await navigator.share({
+          title: "Qi",
+          text: "Check out Qi – A quiet place to write!",
+          url: window.location.href,
+        })
+      } catch (error) {
+        // User cancelled or sharing failed, fall back to share dialog
+        console.log("Share cancelled or failed:", error)
+        setShowShareDialog(true)
+      }
+    } else {
+      // Web Share API not available, use fallback dialog
+      setShowShareDialog(true)
+    }
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error("Failed to copy:", error)
+    }
   }
 
   if (!mounted) {
     return null
   }
 
+  // Landing Page - Simple White Design
+  if (showLanding) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="text-center space-y-8 max-w-md w-full">
+          {/* Logo and Title */}
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <img
+                src="/qilogo.png"
+                alt="Qi Logo"
+                className="h-16 w-auto max-w-16"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none"
+                  const fallback = document.createElement("h1")
+                  fallback.textContent = getTranslation(language, "appName")
+                  fallback.className = "text-4xl font-light text-black tracking-wide"
+                  e.currentTarget.parentNode?.appendChild(fallback)
+                }}
+              />
+            </div>
+            <p className="text-lg text-gray-500 font-light">{getTranslation(language, "tagline")}</p>
+          </div>
+
+          {/* Enter Button */}
+          <Button
+            onClick={handleEnterQi}
+            className="bg-black hover:bg-gray-900 text-white px-8 py-3 text-base font-normal rounded-none transition-colors duration-200 border border-black"
+            size="lg"
+          >
+            {getTranslation(language, "enter")}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Welcome Screen
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full space-y-8 text-center animate-in fade-in-50 duration-500">
+          <div className="space-y-4">
+            <div className="w-24 h-24 mx-auto bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center animate-in zoom-in-75 duration-700">
+              <FileText className="w-12 h-12 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold text-foreground">Qi</h1>
+              <p className="text-muted-foreground text-lg">A quiet place to write</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Everything saves locally</span>
+            </div>
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>No cloud, no tracking</span>
+            </div>
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              <span>Zero distractions</span>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-foreground font-medium">Welcome to Qi</p>
+            <p className="text-muted-foreground">Enter below</p>
+            <Button onClick={handleEnterQi} className="w-full" size="lg" type="button">
+              Enter Qi
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+
+          <div className="pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="text-muted-foreground"
+            >
+              {theme === "dark" ? (
+                <>
+                  <Sun className="w-4 h-4 mr-2" />
+                  Light Mode
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 mr-2" />
+                  Dark Mode
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (isLocked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              <Lock className="h-12 w-12 mx-auto text-muted-foreground" />
-              <div>
-                <h2 className="text-xl font-semibold">{t("enterPinTitle")}</h2>
-                <p className="text-sm text-muted-foreground mt-1">{t("enterPinDescription")}</p>
-              </div>
-              <div className="space-y-3">
-                <Input
-                  type="password"
-                  placeholder={t("enterPin")}
-                  value={enteredPin}
-                  onChange={(e) => setEnteredPin(e.target.value)}
-                  maxLength={4}
-                  className="text-center text-lg tracking-widest"
-                />
-                <Button onClick={handleUnlock} className="w-full" disabled={enteredPin.length !== 4}>
-                  {t("unlock")}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="text-center space-y-4 animate-in fade-in-50 duration-500">
+          <Lock className="w-16 h-16 mx-auto text-muted-foreground animate-in zoom-in-75 duration-700" />
+          <h1 className="text-2xl font-bold">Qi</h1>
+          <p className="text-muted-foreground">Your writing space is locked</p>
+          <Button onClick={() => setShowUnlockDialog(true)}>
+            <Unlock className="w-4 h-4 mr-2" />
+            Unlock
+          </Button>
+          <div className="pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="text-muted-foreground"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? (
+                <>
+                  <Sun className="w-4 h-4 mr-2" />
+                  Light Mode
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 mr-2" />
+                  Dark Mode
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      <PWAInstallPrompt />
+      <PWAUpdatePrompt />
+      <OfflineIndicator />
+
+      {/* Header - Fixed horizontal layout */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          {/* Left side - App name and status */}
-          <div className="flex items-center space-x-4">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            {/* Left side - App name and status */}
             <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold">{t("appName")}</h1>
-              <Badge variant="secondary" className="text-xs">
-                {t("page")} {currentPage} {t("of")} {totalPages}
-              </Badge>
+              <h1 className="text-xl font-bold">Qi</h1>
+              {isSaving && <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>}
+              {isOffline && (
+                <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 rounded-full flex items-center">
+                  <WifiOff className="w-3 h-3 mr-1" />
+                  Offline
+                </span>
+              )}
             </div>
-          </div>
 
-          {/* Right side - All controls */}
-          <div className="flex items-center space-x-1">
-            {/* Language Selector */}
-            <Select value={language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-20 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">{translations.en.english}</SelectItem>
-                <SelectItem value="zh">{translations.zh.chinese}</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Right side - Controls in horizontal layout */}
+            <div className="flex items-center space-x-1 flex-wrap">
+              {/* Home button */}
+              <Button variant="ghost" size="icon" onClick={handleGoHome} title="Go to landing page" type="button">
+                <Home className="w-4 h-4" />
+              </Button>
 
-            {/* Navigation */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              {/* View Mode Toggle */}
+              <Button
+                variant={viewMode === "single" ? "default" : "ghost"}
+                size="icon"
+                type="button"
+                onClick={() => setViewMode("single")}
+                title="Single page view"
+              >
+                <SinglePage className="w-4 h-4" />
+              </Button>
 
-            <Separator orientation="vertical" className="h-6" />
+              <Button
+                variant={viewMode === "book" ? "default" : "ghost"}
+                size="icon"
+                type="button"
+                onClick={() => setViewMode("book")}
+                title="Book view (dual pages)"
+              >
+                <BookOpen className="w-4 h-4" />
+              </Button>
 
-            {/* View Mode */}
-            <Button variant="ghost" size="sm">
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm">
-              <BookOpen className="h-4 w-4" />
-            </Button>
+              {/* Page Size Selector */}
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(e.target.value as "A4" | "Letter" | "A5")}
+                className="px-2 py-1 text-sm bg-background border border-border rounded h-9"
+                title="Page size"
+              >
+                <option value="A4">A4</option>
+                <option value="Letter">Letter</option>
+                <option value="A5">A5</option>
+              </select>
 
-            {/* Page Size */}
-            <Select defaultValue="a4">
-              <SelectTrigger className="w-16 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="a4">A4</SelectItem>
-                <SelectItem value="letter">Letter</SelectItem>
-                <SelectItem value="legal">Legal</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Theme Toggle */}
-            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-
-            {/* Share */}
-            <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Share2 className="h-4 w-4" />
+              {/* Native file system (Tauri only) */}
+              {mounted && isTauri() && (
+                <Button
+                  variant={showNativeFileSystem ? "default" : "ghost"}
+                  size="icon"
+                  type="button"
+                  onClick={() => setShowNativeFileSystem(!showNativeFileSystem)}
+                  title="Native file system"
+                >
+                  <HardDrive className="w-4 h-4" />
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("shareTitle")}</DialogTitle>
-                  <DialogDescription>{t("shareDescription")}</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <Button className="w-full bg-transparent" variant="outline">
-                    {t("shareOnTwitter")}
-                  </Button>
-                  <Button className="w-full bg-transparent" variant="outline">
-                    {t("shareOnFacebook")}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+              )}
 
-            {/* Export Options */}
-            <Select
-              onValueChange={(value) => {
-                switch (value) {
-                  case "txt":
-                    exportAsText()
-                    break
-                  case "docx":
-                    exportAsDocx()
-                    break
-                  case "pdf":
-                    exportAsPdf()
-                    break
-                  case "print":
-                    window.print()
-                    break
-                  case "import":
-                    importFromFile()
-                    break
-                }
-              }}
-            >
-              <SelectTrigger className="w-10 h-9">
-                <Download className="h-4 w-4" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="txt">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4" />
-                    <div>
-                      <div className="font-medium">{t("exportAsTxt")}</div>
-                      <div className="text-xs text-muted-foreground">{t("exportAsTxtDesc")}</div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="docx">
-                  <div className="flex items-center space-x-2">
-                    <FileDown className="h-4 w-4" />
-                    <div>
-                      <div className="font-medium">{t("exportAsDocx")}</div>
-                      <div className="text-xs text-muted-foreground">{t("exportAsDocxDesc")}</div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="pdf">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4" />
-                    <div>
-                      <div className="font-medium">{t("exportAsPdf")}</div>
-                      <div className="text-xs text-muted-foreground">{t("exportAsPdfDesc")}</div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="print">
-                  <div className="flex items-center space-x-2">
-                    <Printer className="h-4 w-4" />
-                    <div>
-                      <div className="font-medium">{t("printDocument")}</div>
-                      <div className="text-xs text-muted-foreground">{t("printDocumentDesc")}</div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="import">
-                  <div className="flex items-center space-x-2">
-                    <Upload className="h-4 w-4" />
-                    <div>
-                      <div className="font-medium">{t("importFromFile")}</div>
-                      <div className="text-xs text-muted-foreground">{t("importFromFileDesc")}</div>
-                    </div>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              {/* Theme toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                title="Toggle theme"
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
 
-            {/* Timestamp Format */}
-            <Select value={timestampFormat} onValueChange={(value: TimestampFormat) => setTimestampFormat(value)}>
-              <SelectTrigger className="w-10 h-9">
-                <Clock className="h-4 w-4" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="datetime">{t("timestampFormats.datetime")}</SelectItem>
-                <SelectItem value="date">{t("timestampFormats.date")}</SelectItem>
-                <SelectItem value="time">{t("timestampFormats.time")}</SelectItem>
-              </SelectContent>
-            </Select>
+              {/* Share button */}
+              <Button variant="ghost" size="icon" onClick={handleShare} title="Share app" type="button">
+                <Share2 className="w-4 h-4" />
+              </Button>
 
-            {/* Lock */}
-            <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" onClick={pin ? handleLock : undefined}>
-                  <Lock className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("setPinTitle")}</DialogTitle>
-                  <DialogDescription>{t("setPinDescription")}</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <Input
-                    type="password"
-                    placeholder={t("enterPin")}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    maxLength={4}
-                    className="text-center text-lg tracking-widest"
-                  />
-                  <Button onClick={handleSetPin} className="w-full" disabled={pin.length !== 4}>
-                    {t("setPin")}
+              {/* Export Dropdown Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" title="Export options">
+                    <FileDown className="w-4 h-4" />
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <div className="px-2 py-1.5 text-sm font-semibold">{getTranslation(language, "exportOptions")}</div>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={() => handleExport("txt")}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span>{getTranslation(language, "exportAsTxt")}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getTranslation(language, "exportAsTxtDesc")}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={() => handleExport("docx")}>
+                    <FileCheck className="w-4 h-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span>{getTranslation(language, "exportAsDocx")}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getTranslation(language, "exportAsDocxDesc")}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem onClick={handlePrint}>
+                    <Printer className="w-4 h-4 mr-2" />
+                    <div className="flex flex-col">
+                      <span>{getTranslation(language, "printDocument")}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getTranslation(language, "printDocumentDesc")}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <label htmlFor="import-file" className="cursor-pointer flex items-center">
+                      <FileUp className="w-4 h-4 mr-2" />
+                      <div className="flex flex-col">
+                        <span>{getTranslation(language, "importFromFile")}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {getTranslation(language, "importFromFileDesc")}
+                        </span>
+                      </div>
+                      <input id="import-file" type="file" accept=".txt" onChange={handleImport} className="hidden" />
+                    </label>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Timestamp toggle */}
+              <Button
+                variant={timestampsEnabled ? "default" : "ghost"}
+                size="icon"
+                type="button"
+                onClick={() => setTimestampsEnabled(!timestampsEnabled)}
+                title="Toggle automatic timestamps"
+              >
+                <Clock className="w-4 h-4" />
+              </Button>
+
+              {/* Timestamp format selector */}
+              {timestampsEnabled && (
+                <select
+                  value={timestampFormat}
+                  onChange={(e) => setTimestampFormat(e.target.value as "datetime" | "time" | "date")}
+                  className="px-2 py-1 text-sm bg-background border border-border rounded h-9"
+                  title={getTranslation(language, "timestampFormat")}
+                >
+                  <option value="datetime">{getTranslation(language, "timestampFormats.datetime")}</option>
+                  <option value="date">{getTranslation(language, "timestampFormats.date")}</option>
+                  <option value="time">{getTranslation(language, "timestampFormats.time")}</option>
+                </select>
+              )}
+
+              {/* Lock button */}
+              <Button variant="ghost" size="icon" onClick={handleLock} title="Lock writing space" type="button">
+                <Lock className="w-4 h-4" />
+              </Button>
+
+              {/* Language Selector */}
+              <select
+                value={language}
+                onChange={(e) => handleLanguageChange(e.target.value as Language)}
+                className="px-2 py-1 text-sm bg-background border border-border rounded h-9"
+                title={getTranslation(language, "language")}
+              >
+                <option value="en">{getTranslation(language, "english")}</option>
+                <option value="zh">{getTranslation(language, "chinese")}</option>
+              </select>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
-          {/* Previous Content Display */}
-          {timestampedContent.length > 0 && (
-            <div className="space-y-6 mb-8">
-              {timestampedContent.map((item) => (
-                <div key={item.id} className="space-y-2">
-                  <div className="text-sm text-muted-foreground font-medium">{formatTimestamp(item.timestamp)}</div>
-                  <div className="whitespace-pre-wrap text-foreground leading-relaxed">{item.content}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Current Writing Area */}
-          <div className="space-y-4">
-            <Textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder={timestampedContent.length > 0 ? t("continueWriting") : t("startWritingTimestamps")}
-              className="min-h-[400px] resize-none border-0 shadow-none text-base leading-relaxed focus-visible:ring-0 p-0"
-              style={{ fontSize: "16px", lineHeight: "1.6" }}
-            />
-
-            {content && (
-              <div className="flex justify-end">
-                <Button onClick={addTimestamp} variant="outline" size="sm">
-                  <Clock className="h-4 w-4 mr-2" />
-                  Add Timestamp (Ctrl+T)
-                </Button>
-              </div>
-            )}
-          </div>
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={handleContentChange}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              timestampsEnabled
+                ? getTranslation(language, "startWritingTimestamps")
+                : getTranslation(language, "startWriting")
+            }
+            className="w-full min-h-[600px] resize-none border-none outline-none bg-transparent placeholder:text-muted-foreground text-base leading-relaxed p-0"
+            style={{
+              fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace",
+            }}
+            aria-label="Writing space"
+          />
         </div>
       </main>
+
+      {/* Set PIN Dialog */}
+      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{getTranslation(language, "setPinTitle")}</DialogTitle>
+            <DialogDescription>
+              {isSettingPin
+                ? getTranslation(language, "setPinDescription")
+                : getTranslation(language, "enterPinDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="password"
+              placeholder={getTranslation(language, "enterPin")}
+              value={inputPin}
+              onChange={(e) => setInputPin(e.target.value.slice(0, 4))}
+              onKeyDown={handlePinKeyDown}
+              maxLength={4}
+              className="text-center text-2xl tracking-widest"
+              autoFocus
+              inputMode="numeric"
+              pattern="[0-9]*"
+            />
+            <Button onClick={handleSetPin} className="w-full" disabled={inputPin.length !== 4}>
+              {getTranslation(language, "setPin")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unlock Dialog */}
+      <Dialog open={showUnlockDialog} onOpenChange={setShowUnlockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{getTranslation(language, "enterPinTitle")}</DialogTitle>
+            <DialogDescription>{getTranslation(language, "enterPinDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="password"
+              placeholder={getTranslation(language, "enterPin")}
+              value={inputPin}
+              onChange={(e) => setInputPin(e.target.value.slice(0, 4))}
+              onKeyDown={handlePinKeyDown}
+              maxLength={4}
+              className="text-center text-2xl tracking-widest"
+              autoFocus
+              inputMode="numeric"
+              pattern="[0-9]*"
+            />
+            <Button onClick={handleUnlock} className="w-full" disabled={inputPin.length !== 4}>
+              {getTranslation(language, "unlock")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{getTranslation(language, "shareTitle")}</DialogTitle>
+            <DialogDescription>{getTranslation(language, "shareDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
+              <input
+                type="text"
+                value={window.location.href}
+                readOnly
+                className="flex-1 bg-transparent border-none outline-none text-sm"
+              />
+              <Button variant="outline" size="sm" onClick={copyToClipboard} className="shrink-0 bg-transparent">
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                onClick={() =>
+                  window.open(
+                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(getTranslation(language, "shareDescription"))}&url=${encodeURIComponent(window.location.href)}`,
+                    "_blank",
+                  )
+                }
+                className="flex-1"
+              >
+                {getTranslation(language, "shareOnTwitter")}
+              </Button>
+              <Button
+                onClick={() =>
+                  window.open(
+                    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`,
+                    "_blank",
+                  )
+                }
+                className="flex-1"
+              >
+                {getTranslation(language, "shareOnFacebook")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
