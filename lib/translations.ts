@@ -347,16 +347,14 @@ export const translations = {
       acceptance: "使用气即表示你同意这些条款。气是一个免费的写作应用，所有数据都本地存储在你的设备上。",
       service: "气提供简单、注重隐私的写作环境。你的所有内容都保留在你的设备上，由你控制。",
       responsibilities: "你的责任",
-      responsibilitiesList:
-        "定期备份重要内容，负责任和合法地使用应用，理解数据仅本地存储，如果使用PIN保护请保护好你的设备",
+      responsibilitiesList: "定期备份重要内容，负责任和合法地使用应用，理解数据仅本地存储，如果使用PIN保护请保护好你的设备",
       limitations: "服务限制",
-      limitationsList:
-        "我们按'现状'提供应用，不提供保证，本地存储可能有浏览器限制，我们不对数据丢失负责，服务可能会更新或停止",
+      limitationsList: "我们按'现状'提供应用，不提供保证，本地存储可能有浏览器限制，我们不对数据丢失负责，服务可能会更新或停止",
       termination: "你可以随时停止使用气。你的本地数据将保留在你的设备上，直到你清除它。",
       contact: "对这些条款有疑问？请联系我们：overthinkr9@gmail.com",
 }
 ,
-    termsUse: \"服务使用",
+    termsUse: "服务使用",\
     termsUseText: "气免费提供个人和商业使用。你保留对内容的完全所有权。",
     termsData: "你的数据",
     termsDataText: "所有数据都本地存储在你的设备上。你有责任备份重要内容。",
@@ -372,8 +370,8 @@ export const translations = {
     contactName: "姓名",
     contactNamePlaceholder: "你的姓名",
     contactEmail: "邮箱",
-    contactEmailPlaceholder: "your@email.com",\
-    contactMessage: "消息",
+    contactEmailPlaceholder: "your@email.com",
+    contactMessage: "消息",\
     contactMessagePlaceholder: "告诉我们你的想法...",
     contactSend: "发送消息",
     contactSending: "发送中...",
