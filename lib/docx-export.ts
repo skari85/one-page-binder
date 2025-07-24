@@ -1,8 +1,8 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
-import { saveAs } from 'file-saver'
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx"
+import saveAs from "file-saver"
 
 export function exportToTxt(content: string, filename: string): void {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
   saveAs(blob, `${filename}.txt`)
 }
 
@@ -40,26 +40,29 @@ export function exportToHtml(content: string, filename: string): void {
 </head>
 <body>
     <h1>${filename}</h1>
-    ${content.split('\n').map(line => {
-      if (line.trim() === '') return ''
-      const timestampMatch = line.match(/^(\[.*?\])\s*(.*)/)
-      if (timestampMatch) {
-        return `<p><span class="timestamp">${timestampMatch[1]}</span> ${timestampMatch[2]}</p>`
-      }
-      return `<p>${line}</p>`
-    }).join('\n')}
+    ${content
+      .split("\n")
+      .map((line) => {
+        if (line.trim() === "") return ""
+        const timestampMatch = line.match(/^(\[.*?\])\s*(.*)/)
+        if (timestampMatch) {
+          return `<p><span class="timestamp">${timestampMatch[1]}</span> ${timestampMatch[2]}</p>`
+        }
+        return `<p>${line}</p>`
+      })
+      .join("\n")}
 </body>
 </html>`
-  
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
+
+  const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" })
   saveAs(blob, `${filename}.html`)
 }
 
 export function exportToPdf(content: string, filename: string): void {
   // Create a temporary HTML page for printing
-  const printWindow = window.open('', '_blank')
+  const printWindow = window.open("", "_blank")
   if (!printWindow) return
-  
+
   const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -97,20 +100,23 @@ export function exportToPdf(content: string, filename: string): void {
 </head>
 <body>
     <h1>${filename}</h1>
-    ${content.split('\n').map(line => {
-      if (line.trim() === '') return ''
-      const timestampMatch = line.match(/^(\[.*?\])\s*(.*)/)
-      if (timestampMatch) {
-        return `<p><span class="timestamp">${timestampMatch[1]}</span> ${timestampMatch[2]}</p>`
-      }
-      return `<p>${line}</p>`
-    }).join('\n')}
+    ${content
+      .split("\n")
+      .map((line) => {
+        if (line.trim() === "") return ""
+        const timestampMatch = line.match(/^(\[.*?\])\s*(.*)/)
+        if (timestampMatch) {
+          return `<p><span class="timestamp">${timestampMatch[1]}</span> ${timestampMatch[2]}</p>`
+        }
+        return `<p>${line}</p>`
+      })
+      .join("\n")}
 </body>
 </html>`
-  
+
   printWindow.document.write(htmlContent)
   printWindow.document.close()
-  
+
   // Wait for content to load, then trigger print dialog
   setTimeout(() => {
     printWindow.print()
@@ -124,40 +130,40 @@ export function printDocument(content: string, filename: string): void {
 
 export async function exportToDocx(content: string, filename: string): Promise<void> {
   // Split content into paragraphs
-  const paragraphs = content.split('\n').filter(line => line.trim() !== '')
-  
+  const paragraphs = content.split("\n").filter((line) => line.trim() !== "")
+
   // Create document sections
   const children: Paragraph[] = []
-  
+
   // Add title
   children.push(
     new Paragraph({
-      text: 'One Page Binder',
+      text: "One Page Binder",
       heading: HeadingLevel.HEADING_1,
       alignment: AlignmentType.CENTER,
       spacing: {
         after: 400,
       },
-    })
+    }),
   )
-  
+
   // Add content paragraphs
   paragraphs.forEach((paragraph) => {
     // Check if this looks like a timestamp
     const timestampMatch = paragraph.match(/^\[.*?\]\s*/)
-    
+
     if (timestampMatch) {
       // This is a timestamp line, make it a heading
       const timestampText = timestampMatch[0]
-      const contentText = paragraph.replace(timestampMatch[0], '').trim()
-      
+      const contentText = paragraph.replace(timestampMatch[0], "").trim()
+
       children.push(
         new Paragraph({
           children: [
             new TextRun({
               text: timestampText,
               bold: true,
-              color: '666666',
+              color: "666666",
               size: 20,
             }),
             new TextRun({
@@ -169,7 +175,7 @@ export async function exportToDocx(content: string, filename: string): Promise<v
             before: 200,
             after: 200,
           },
-        })
+        }),
       )
     } else {
       // Regular paragraph
@@ -185,11 +191,11 @@ export async function exportToDocx(content: string, filename: string): Promise<v
             before: 120,
             after: 120,
           },
-        })
+        }),
       )
     }
   })
-  
+
   // Create the document
   const doc = new Document({
     sections: [
@@ -208,19 +214,19 @@ export async function exportToDocx(content: string, filename: string): Promise<v
       },
     ],
   })
-  
+
   // Generate the document
   const buffer = await Packer.toBuffer(doc)
-  
+
   // Create and trigger download
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
+  const a = document.createElement("a")
   a.href = url
   a.download = filename
-  a.style.display = 'none'
+  a.style.display = "none"
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
