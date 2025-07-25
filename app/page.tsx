@@ -285,6 +285,20 @@ export default function OnePageBinder() {
     setShowSuggestion(e.target.value.trim() === "")
   }
 
+  // Get page size classes
+  const getPageSizeClass = () => {
+    switch (pageSize) {
+      case "A4":
+        return "max-w-[210mm]"
+      case "Letter":
+        return "max-w-[8.5in]"
+      case "A5":
+        return "max-w-[148mm]"
+      default:
+        return "max-w-4xl"
+    }
+  }
+
   // Landing page
   if (!showApp) {
     return (
@@ -625,19 +639,28 @@ export default function OnePageBinder() {
           )}
 
           {/* Writing Area */}
-          <div
-            className={`mx-auto ${pageSize === "A4" ? "max-w-4xl" : pageSize === "Letter" ? "max-w-4xl" : "max-w-2xl"}`}
-          >
-            <div className={`bg-card rounded-lg shadow-sm ${viewMode === "book" ? "min-h-[800px]" : "min-h-[600px]"}`}>
+          <div className={`mx-auto ${getPageSizeClass()}`}>
+            <div
+              className={`bg-card rounded-lg shadow-sm ${
+                viewMode === "book" ? "min-h-[800px] p-8 bg-white dark:bg-gray-900 shadow-lg border" : "min-h-[600px]"
+              }`}
+            >
               <Textarea
                 ref={textareaRef}
                 value={content}
                 onChange={handleContentChange}
                 placeholder={t("app.placeholder")}
-                className="w-full h-full min-h-[600px] resize-none border-0 bg-transparent p-8 text-base leading-relaxed focus-visible:ring-0"
+                className={`w-full h-full resize-none border-0 bg-transparent text-base leading-relaxed focus-visible:ring-0 ${
+                  viewMode === "book"
+                    ? "min-h-[750px] columns-2 gap-8 column-fill-auto break-words p-0 font-serif text-justify"
+                    : "min-h-[600px] p-8"
+                }`}
                 style={{
-                  fontFamily: "ui-serif, Georgia, Cambria, serif",
-                  lineHeight: "1.8",
+                  fontFamily:
+                    viewMode === "book" ? "ui-serif, Georgia, Cambria, serif" : "ui-sans-serif, system-ui, sans-serif",
+                  lineHeight: viewMode === "book" ? "1.8" : "1.6",
+                  columnGap: viewMode === "book" ? "2rem" : "normal",
+                  columnRule: viewMode === "book" ? "1px solid #e5e7eb" : "none",
                 }}
               />
             </div>

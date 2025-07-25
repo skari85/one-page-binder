@@ -1,22 +1,21 @@
 export type Language = "en" | "zh"
 
-export function getStoredLanguage(): Language {
+export const getStoredLanguage = (): Language => {
   if (typeof window === "undefined") return "en"
-
-  try {
-    const stored = localStorage.getItem("qi-language")
-    return stored === "zh" || stored === "en" ? stored : "en"
-  } catch {
-    return "en"
-  }
+  return (localStorage.getItem("language") as Language) || "en"
 }
 
-export function setStoredLanguage(language: Language): void {
+export const setStoredLanguage = (language: Language) => {
   if (typeof window === "undefined") return
+  localStorage.setItem("language", language)
+}
 
-  try {
-    localStorage.setItem("qi-language", language)
-  } catch {
-    // Ignore storage errors
-  }
+export const getDefaultLanguage = (): Language => {
+  if (typeof window === "undefined") return "en"
+
+  const stored = getStoredLanguage()
+  if (stored) return stored
+
+  const browserLang = navigator.language.toLowerCase()
+  return browserLang.startsWith("zh") ? "zh" : "en"
 }
