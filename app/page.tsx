@@ -523,7 +523,7 @@ export default function Qi() {
                 e.currentTarget.style.display = "none"
               }}
             />
-            <span className="text-xl font-bold text-black">{getTranslation(language, "appName")}</span>
+            
           </div>
 
           <div className="flex items-center space-x-4">
