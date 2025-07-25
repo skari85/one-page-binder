@@ -1,20 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import type { Language } from "./translations"
-import { getTranslation } from "./translations"
+import React from "react"
 
-const LANGUAGE_KEY = "qi-language"
+export type Language = "en" | "zh"
 
 export function getLanguage(): Language {
   if (typeof window === "undefined") return "en"
 
-  const saved = localStorage.getItem(LANGUAGE_KEY)
-  if (saved && (saved === "en" || saved === "zh")) {
-    return saved as Language
+  const saved = localStorage.getItem("qi-language")
+  if (saved === "en" || saved === "zh") {
+    return saved
   }
 
-  // Auto-detect from browser language
+  // Detect browser language
   const browserLang = navigator.language.toLowerCase()
   if (browserLang.startsWith("zh")) {
     return "zh"
@@ -24,27 +22,25 @@ export function getLanguage(): Language {
 }
 
 export function setLanguage(language: Language) {
-  if (typeof window === "undefined") return
-  localStorage.setItem(LANGUAGE_KEY, language)
+  if (typeof window !== "undefined") {
+    localStorage.setItem("qi-language", language)
+  }
 }
 
 export function useLanguage() {
-  const [language, setLanguageState] = useState<Language>("en")
+  const [language, setLanguageState] = React.useState<Language>("en")
 
-  useEffect(() => {
+  React.useEffect(() => {
     setLanguageState(getLanguage())
   }, [])
 
-  const handleSetLanguage = (newLanguage: Language) => {
-    setLanguageState(newLanguage)
+  const updateLanguage = (newLanguage: Language) => {
     setLanguage(newLanguage)
+    setLanguageState(newLanguage)
   }
-
-  const t = (key: string) => getTranslation(language, key)
 
   return {
     language,
-    setLanguage: handleSetLanguage,
-    t,
+    setLanguage: updateLanguage,
   }
 }

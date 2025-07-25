@@ -44,7 +44,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "latest",
-    "docx": "latest",
+    "docx": "^8.5.0",
     "embla-carousel-react": "latest",
     "file-saver": "latest",
     "geist": "^1.3.1",

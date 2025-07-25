@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -39,71 +38,35 @@ import {
   Lightbulb,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useLanguage } from "@/lib/language"
-import { translations } from "@/lib/translations"
-import { exportToDocx } from "@/lib/docx-export"
+import { getLanguage, setLanguage, type Language } from "@/lib/language"
+import { getTranslation } from "@/lib/translations"
+import { exportToTxt, exportToDocx, exportToPdf, exportToHtml, printDocument } from "@/lib/docx-export"
 import { OfflineIndicator } from "@/components/offline-indicator"
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import { PWAUpdatePrompt } from "@/components/pwa-update-prompt"
-import { TauriNativeFS } from "@/components/tauri-native-fs"
 import { track } from "@vercel/analytics"
 
 // Focus exercises data
 const focusExercises = [
   {
     id: "grounding",
-    prompt: {
-      en: "Right now I notice...",
-      zh: "现在我注意到...",
-    },
-    description: {
-      en: "Ground yourself in the present moment",
-      zh: "让自己专注于当下",
-    },
+    key: "rightNow",
   },
   {
     id: "today",
-    prompt: {
-      en: "Write one sentence that could only happen today.",
-      zh: "写一句只有今天才会发生的话。",
-    },
-    description: {
-      en: "Anchor yourself in time and memory",
-      zh: "将自己锚定在时间和记忆中",
-    },
+    key: "todayOnly",
   },
   {
     id: "perspective",
-    prompt: {
-      en: "Choose an object near you. What has it seen today?",
-      zh: "选择你身边的一个物体。它今天看到了什么？",
-    },
-    description: {
-      en: "Shift perspective and spark imagination",
-      zh: "转换视角，激发想象力",
-    },
+    key: "objectView",
   },
   {
     id: "metaphor",
-    prompt: {
-      en: "Write a sentence where you swap a feeling with a color.",
-      zh: "写一句话，用颜色来替换一种感觉。",
-    },
-    description: {
-      en: "Train metaphorical thinking",
-      zh: "训练隐喻思维",
-    },
+    key: "colorFeeling",
   },
   {
     id: "constraint",
-    prompt: {
-      en: "Tell me something true in exactly ten words.",
-      zh: "用恰好十个字告诉我一些真实的事情。",
-    },
-    description: {
-      en: "Use constraints to drive flow",
-      zh: "用限制来驱动思维流动",
-    },
+    key: "tenWords",
   },
 ]
 
@@ -121,12 +84,40 @@ export default function OnePageBinder() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [currentExercise, setCurrentExercise] = useState(0)
   const [showExerciseCard, setShowExerciseCard] = useState(false)
+  const [language, setLanguageState] = useState<Language>("en")
 
   const { theme, setTheme } = useTheme()
-  const { language, setLanguage } = useLanguage()
-  const t = translations[language]
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Focus exercises data
+  const focusExercises = [
+    {
+      id: "grounding",
+      key: "rightNow",
+    },
+    {
+      id: "today",
+      key: "todayOnly",
+    },
+    {
+      id: "perspective",
+      key: "objectView",
+    },
+    {
+      id: "metaphor",
+      key: "colorFeeling",
+    },
+    {
+      id: "constraint",
+      key: "tenWords",
+    },
+  ]
+
+  // Initialize language
+  useEffect(() => {
+    setLanguageState(getLanguage())
+  }, [])
 
   // Auto-save functionality
   useEffect(() => {
@@ -155,6 +146,11 @@ export default function OnePageBinder() {
     setShowExerciseCard(!isLandingPage && content.trim() === "")
   }, [content, isLandingPage])
 
+  const handleLanguageChange = (newLanguage: Language) => {
+    setLanguage(newLanguage)
+    setLanguageState(newLanguage)
+  }
+
   const handleEnterApp = () => {
     setIsLandingPage(false)
     track("enter_app")
@@ -167,7 +163,7 @@ export default function OnePageBinder() {
 
   const handleExport = async (format: string) => {
     if (!content.trim()) {
-      toast.error(t.export.noContent)
+      toast.error(getTranslation(language, "export.noContent"))
       return
     }
 
@@ -177,17 +173,10 @@ export default function OnePageBinder() {
     try {
       switch (format) {
         case "txt":
-          const txtBlob = new Blob([content], { type: "text/plain" })
-          const txtUrl = URL.createObjectURL(txtBlob)
-          const txtLink = document.createElement("a")
-          txtLink.href = txtUrl
-          txtLink.download = `${filename}.txt`
-          txtLink.click()
-          URL.revokeObjectURL(txtUrl)
+          exportToTxt(content, filename)
           break
-
         case "docx":
-          await exportToDocx(content, `${filename}.docx`, {
+          await exportToDocx(content, filename, {
             title: "One Page Binder Document",
             author: "One Page Binder",
             includeTimestamp: true,
@@ -195,43 +184,17 @@ export default function OnePageBinder() {
             customTimestampFormat,
           })
           break
-
         case "pdf":
-          window.print()
+          exportToPdf(content, filename)
           break
-
         case "html":
-          const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8">
-              <title>One Page Binder Document</title>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
-                .timestamp { color: #666; font-style: italic; margin-bottom: 20px; }
-                .content { white-space: pre-wrap; }
-              </style>
-            </head>
-            <body>
-              <div class="timestamp">${new Date().toLocaleString()}</div>
-              <div class="content">${content.replace(/\n/g, "<br>")}</div>
-            </body>
-            </html>
-          `
-          const htmlBlob = new Blob([htmlContent], { type: "text/html" })
-          const htmlUrl = URL.createObjectURL(htmlBlob)
-          const htmlLink = document.createElement("a")
-          htmlLink.href = htmlUrl
-          htmlLink.download = `${filename}.html`
-          htmlLink.click()
-          URL.revokeObjectURL(htmlUrl)
+          exportToHtml(content, filename)
           break
       }
-      toast.success(t.export.success)
+      toast.success(getTranslation(language, "export.success"))
       track("export", { format })
     } catch (error) {
-      toast.error(t.export.error)
+      toast.error(getTranslation(language, "export.error"))
     }
   }
 
@@ -243,7 +206,7 @@ export default function OnePageBinder() {
     reader.onload = (e) => {
       const text = e.target?.result as string
       setContent(text)
-      toast.success(t.import.success)
+      toast.success(getTranslation(language, "import.success"))
       track("import")
     }
     reader.readAsText(file)
@@ -274,7 +237,7 @@ export default function OnePageBinder() {
 
   const handleLock = () => {
     if (!pin) {
-      toast.error(t.pin.setPinFirst)
+      toast.error(getTranslation(language, "pin.setPinFirst"))
       return
     }
     setIsLocked(true)
@@ -285,19 +248,19 @@ export default function OnePageBinder() {
     if (enteredPin === pin) {
       setIsLocked(false)
       setEnteredPin("")
-      toast.success(t.pin.unlocked)
+      toast.success(getTranslation(language, "pin.unlocked"))
       track("unlock")
     } else {
-      toast.error(t.pin.incorrect)
+      toast.error(getTranslation(language, "pin.incorrect"))
     }
   }
 
-  const useExercise = (exercise: (typeof focusExercises)[0]) => {
-    const prompt = exercise.prompt[language]
+  const useExercise = (exerciseKey: string) => {
+    const prompt = getTranslation(language, `exercises.${exerciseKey}.prompt`)
     setContent((prev) => (prev ? `${prev}\n\n${prompt} ` : `${prompt} `))
     setShowExerciseCard(false)
     textareaRef.current?.focus()
-    track("use_exercise", { exercise: exercise.id })
+    track("use_exercise", { exercise: exerciseKey })
   }
 
   const getPageSizeClass = () => {
@@ -311,8 +274,35 @@ export default function OnePageBinder() {
     }
   }
 
-  const handleExerciseClick = (exercise: (typeof focusExercises)[0]) => {
-    useExercise(exercise)
+  const handleExerciseClick = (exerciseKey: string) => {
+    setContent((prev) =>
+      prev
+        ? `${prev}\n\n${getTranslation(language, `exercises.${exerciseKey}.prompt`)}`
+        : `${getTranslation(language, `exercises.${exerciseKey}.prompt`)}`,
+    )
+    setShowExerciseCard(false)
+    textareaRef.current?.focus()
+    track("use_exercise", { exercise: exerciseKey })
+  }
+
+  const handleToggleBookView = () => {
+    setIsBookView(!isBookView)
+  }
+
+  const handleToggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark")
+  }
+
+  const handleTimestampFormatChange = (newFormat: string) => {
+    setTimestampFormat(newFormat)
+  }
+
+  const handleCustomTimestampFormatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomTimestampFormat(e.target.value)
+  }
+
+  const handleShowPinToggle = () => {
+    setShowPin(!showPin)
   }
 
   if (isLandingPage) {
@@ -323,7 +313,7 @@ export default function OnePageBinder() {
           <div className="max-w-6xl mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <img src="/qilogo.png" alt="Logo" className="w-8 h-8" />
-              
+              <span className="text-xl font-bold">{getTranslation(language, "appName")}</span>
             </div>
 
             <div className="flex items-center space-x-4">
@@ -335,8 +325,8 @@ export default function OnePageBinder() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setLanguage("en")}>English</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setLanguage("zh")}>中文</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleLanguageChange("en")}>English</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleLanguageChange("zh")}>中文</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -347,10 +337,14 @@ export default function OnePageBinder() {
         <main className="flex-1 flex items-center justify-center px-4">
           <div className="text-center max-w-2xl mx-auto">
             <img src="/qilogo.png" alt="One Page Binder" className="w-24 h-24 mx-auto mb-8" />
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">{t.landing.title}</h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">{t.landing.subtitle}</p>
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              {getTranslation(language, "landing.title")}
+            </h1>
+            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+              {getTranslation(language, "landing.subtitle")}
+            </p>
             <Button onClick={handleEnterApp} size="lg" className="px-8 py-3 text-lg">
-              {t.landing.enter}
+              {getTranslation(language, "landing.enter")}
             </Button>
           </div>
         </main>
@@ -361,34 +355,34 @@ export default function OnePageBinder() {
             <Dialog>
               <DialogTrigger asChild>
                 <button className="hover:text-gray-900 dark:hover:text-white transition-colors">
-                  {t.footer.privacy}
+                  {getTranslation(language, "footer.privacy")}
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{t.privacy.title}</DialogTitle>
+                  <DialogTitle>{getTranslation(language, "privacy.title")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 text-sm">
-                  <p>{t.privacy.intro}</p>
+                  <p>{getTranslation(language, "privacy.intro")}</p>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.privacy.dataCollection.title}</h3>
-                    <p>{t.privacy.dataCollection.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.dataCollection.title")}</h3>
+                    <p>{getTranslation(language, "privacy.dataCollection.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.privacy.dataStorage.title}</h3>
-                    <p>{t.privacy.dataStorage.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.dataStorage.title")}</h3>
+                    <p>{getTranslation(language, "privacy.dataStorage.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.privacy.dataSharing.title}</h3>
-                    <p>{t.privacy.dataSharing.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.dataSharing.title")}</h3>
+                    <p>{getTranslation(language, "privacy.dataSharing.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.privacy.userRights.title}</h3>
-                    <p>{t.privacy.userRights.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.userRights.title")}</h3>
+                    <p>{getTranslation(language, "privacy.userRights.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.privacy.contact.title}</h3>
-                    <p>{t.privacy.contact.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.contact.title")}</h3>
+                    <p>{getTranslation(language, "privacy.contact.content")}</p>
                   </div>
                 </div>
               </DialogContent>
@@ -397,34 +391,36 @@ export default function OnePageBinder() {
             <Dialog>
               <DialogTrigger asChild>
                 <button className="hover:text-gray-900 dark:hover:text-white transition-colors">
-                  {t.footer.terms}
+                  {getTranslation(language, "footer.terms")}
                 </button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{t.terms.title}</DialogTitle>
+                  <DialogTitle>{getTranslation(language, "terms.title")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 text-sm">
-                  <p>{t.terms.intro}</p>
+                  <p>{getTranslation(language, "terms.intro")}</p>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.terms.acceptance.title}</h3>
-                    <p>{t.terms.acceptance.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.acceptance.title")}</h3>
+                    <p>{getTranslation(language, "terms.acceptance.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.terms.serviceDescription.title}</h3>
-                    <p>{t.terms.serviceDescription.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.serviceDescription.title")}</h3>
+                    <p>{getTranslation(language, "terms.serviceDescription.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.terms.userResponsibilities.title}</h3>
-                    <p>{t.terms.userResponsibilities.content}</p>
+                    <h3 className="font-semibold mb-2">
+                      {getTranslation(language, "terms.userResponsibilities.title")}
+                    </h3>
+                    <p>{getTranslation(language, "terms.userResponsibilities.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.terms.limitations.title}</h3>
-                    <p>{t.terms.limitations.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.limitations.title")}</h3>
+                    <p>{getTranslation(language, "terms.limitations.content")}</p>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">{t.terms.changes.title}</h3>
-                    <p>{t.terms.changes.content}</p>
+                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.changes.title")}</h3>
+                    <p>{getTranslation(language, "terms.changes.content")}</p>
                   </div>
                 </div>
               </DialogContent>
@@ -433,24 +429,28 @@ export default function OnePageBinder() {
             <Dialog>
               <DialogTrigger asChild>
                 <button className="hover:text-gray-900 dark:hover:text-white transition-colors">
-                  {t.footer.contact}
+                  {getTranslation(language, "footer.contact")}
                 </button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{t.contact.title}</DialogTitle>
+                  <DialogTitle>{getTranslation(language, "contact.title")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <p>{t.contact.intro}</p>
+                  <p>{getTranslation(language, "contact.intro")}</p>
                   <div className="space-y-2">
                     <p>
-                      <strong>{t.contact.email.label}:</strong> {t.contact.email.value}
+                      <strong>{getTranslation(language, "contact.email.label")}:</strong>{" "}
+                      {getTranslation(language, "contact.email.value")}
                     </p>
                     <p>
-                      <strong>{t.contact.website.label}:</strong> {t.contact.website.value}
+                      <strong>{getTranslation(language, "contact.website.label")}:</strong>{" "}
+                      {getTranslation(language, "contact.website.value")}
                     </p>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{t.contact.response}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {getTranslation(language, "contact.response")}
+                  </p>
                 </div>
               </DialogContent>
             </Dialog>
@@ -472,15 +472,15 @@ export default function OnePageBinder() {
           <div className="flex items-center space-x-2">
             <Button variant="ghost" size="sm" onClick={handleGoHome} className="flex items-center space-x-1">
               <Home className="w-4 h-4" />
-              <span className="hidden sm:inline">{t.toolbar.home}</span>
+              <span className="hidden sm:inline">{getTranslation(language, "toolbar.home")}</span>
             </Button>
 
             <Separator orientation="vertical" className="h-6" />
 
             <div className="flex items-center space-x-1">
-              <Button variant={isBookView ? "default" : "ghost"} size="sm" onClick={() => setIsBookView(!isBookView)}>
+              <Button variant={isBookView ? "default" : "ghost"} size="sm" onClick={handleToggleBookView}>
                 <BookOpen className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">{t.toolbar.bookView}</span>
+                <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.bookView")}</span>
               </Button>
 
               <Select value={pageSize} onValueChange={setPageSize}>
@@ -502,23 +502,32 @@ export default function OnePageBinder() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
                   <Brain className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">{t.focus.title}</span>
+                  <span className="hidden sm:inline ml-1">{getTranslation(language, "focus.title")}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-80">
                 <div className="p-2">
-                  <h4 className="font-medium mb-2">{t.focus.title}</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">{t.focus.subtitle}</p>
+                  <h4 className="font-medium mb-2">{getTranslation(language, "focus.title")}</h4>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                    {getTranslation(language, "focus.subtitle")}
+                  </p>
                 </div>
                 <DropdownMenuSeparator />
-                {focusExercises.map((exercise, index) => (
+                {focusExercises.map((exercise) => (
                   <DropdownMenuItem
                     key={exercise.id}
-                    onClick={() => handleExerciseClick(exercise)}
+                    onClick={() => handleExerciseClick(exercise.key)}
                     className="flex-col items-start p-3 cursor-pointer"
                   >
-                    <div className="font-medium text-sm mb-1">{exercise.prompt[language]}</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">{exercise.description[language]}</div>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-lg">{getTranslation(language, `exercises.${exercise.key}.icon`)}</span>
+                      <span className="font-medium text-sm">
+                        {getTranslation(language, `exercises.${exercise.key}.title`)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                      {getTranslation(language, `exercises.${exercise.key}.prompt`)}
+                    </div>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -528,39 +537,39 @@ export default function OnePageBinder() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
                   <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">{t.toolbar.export}</span>
+                  <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.export")}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem onClick={() => handleExport("txt")}>
                   <FileText className="w-4 h-4 mr-2" />
-                  {t.export.formats.txt}
+                  {getTranslation(language, "export.formats.txt")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExport("docx")}>
                   <FileText className="w-4 h-4 mr-2" />
-                  {t.export.formats.docx}
+                  {getTranslation(language, "export.formats.docx")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExport("pdf")}>
                   <Printer className="w-4 h-4 mr-2" />
-                  {t.export.formats.pdf}
+                  {getTranslation(language, "export.formats.pdf")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleExport("html")}>
                   <FileText className="w-4 h-4 mr-2" />
-                  {t.export.formats.html}
+                  {getTranslation(language, "export.formats.html")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
             <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
               <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline ml-1">{t.toolbar.import}</span>
+              <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.import")}</span>
             </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
                   <Share2 className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">{t.toolbar.share}</span>
+                  <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.share")}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
@@ -570,9 +579,13 @@ export default function OnePageBinder() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="sm" onClick={() => window.print()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => printDocument(content, getTranslation(language, "appName"))}
+            >
               <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline ml-1">{t.toolbar.print}</span>
+              <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.print")}</span>
             </Button>
 
             <Separator orientation="vertical" className="h-6" />
@@ -586,24 +599,24 @@ export default function OnePageBinder() {
               <DropdownMenuContent>
                 <div className="p-3 space-y-3">
                   <div>
-                    <Label className="text-xs">{t.timestamp.format}</Label>
-                    <Select value={timestampFormat} onValueChange={setTimestampFormat}>
+                    <Label className="text-xs">{getTranslation(language, "timestamp.format")}</Label>
+                    <Select value={timestampFormat} onValueChange={handleTimestampFormatChange}>
                       <SelectTrigger className="w-full mt-1">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="iso">{t.timestamp.formats.iso}</SelectItem>
-                        <SelectItem value="locale">{t.timestamp.formats.locale}</SelectItem>
-                        <SelectItem value="custom">{t.timestamp.formats.custom}</SelectItem>
+                        <SelectItem value="iso">{getTranslation(language, "timestamp.formats.iso")}</SelectItem>
+                        <SelectItem value="locale">{getTranslation(language, "timestamp.formats.locale")}</SelectItem>
+                        <SelectItem value="custom">{getTranslation(language, "timestamp.formats.custom")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   {timestampFormat === "custom" && (
                     <div>
-                      <Label className="text-xs">{t.timestamp.customFormat}</Label>
+                      <Label className="text-xs">{getTranslation(language, "timestamp.customFormat")}</Label>
                       <Input
                         value={customTimestampFormat}
-                        onChange={(e) => setCustomTimestampFormat(e.target.value)}
+                        onChange={handleCustomTimestampFormatChange}
                         className="mt-1"
                         placeholder="YYYY-MM-DD HH:mm:ss"
                       />
@@ -621,13 +634,15 @@ export default function OnePageBinder() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{isLocked ? t.pin.unlock : t.pin.setup}</DialogTitle>
+                  <DialogTitle>
+                    {isLocked ? getTranslation(language, "pin.unlock") : getTranslation(language, "pin.setup")}
+                  </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   {!isLocked ? (
                     <>
                       <div>
-                        <Label>{t.pin.setPin}</Label>
+                        <Label>{getTranslation(language, "pin.setPin")}</Label>
                         <div className="relative">
                           <Input
                             type={showPin ? "text" : "password"}
@@ -640,20 +655,20 @@ export default function OnePageBinder() {
                             variant="ghost"
                             size="sm"
                             className="absolute right-0 top-0 h-full px-3"
-                            onClick={() => setShowPin(!showPin)}
+                            onClick={handleShowPinToggle}
                           >
                             {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </Button>
                         </div>
                       </div>
                       <Button onClick={handleLock} disabled={!pin}>
-                        {t.pin.lock}
+                        {getTranslation(language, "pin.lock")}
                       </Button>
                     </>
                   ) : (
                     <>
                       <div>
-                        <Label>{t.pin.enterPin}</Label>
+                        <Label>{getTranslation(language, "pin.enterPin")}</Label>
                         <Input
                           type="password"
                           value={enteredPin}
@@ -661,7 +676,7 @@ export default function OnePageBinder() {
                           onKeyPress={(e) => e.key === "Enter" && handleUnlock()}
                         />
                       </div>
-                      <Button onClick={handleUnlock}>{t.pin.unlock}</Button>
+                      <Button onClick={handleUnlock}>{getTranslation(language, "pin.unlock")}</Button>
                     </>
                   )}
                 </div>
@@ -675,12 +690,12 @@ export default function OnePageBinder() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => setLanguage("en")}>English</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLanguage("zh")}>中文</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleLanguageChange("en")}>English</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleLanguageChange("zh")}>中文</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+            <Button variant="ghost" size="sm" onClick={handleToggleTheme}>
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
           </div>
@@ -688,7 +703,7 @@ export default function OnePageBinder() {
 
         {lastSaved && (
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
-            {t.autosave.saved}: {lastSaved.toLocaleTimeString()}
+            {getTranslation(language, "autosave.saved")}: {lastSaved.toLocaleTimeString()}
           </div>
         )}
       </header>
@@ -700,8 +715,8 @@ export default function OnePageBinder() {
             <div className="flex items-center justify-center h-96">
               <Card className="p-8 text-center">
                 <Lock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <h2 className="text-xl font-semibold mb-2">{t.pin.locked}</h2>
-                <p className="text-gray-600 dark:text-gray-400">{t.pin.lockedMessage}</p>
+                <h2 className="text-xl font-semibold mb-2">{getTranslation(language, "pin.locked")}</h2>
+                <p className="text-gray-600 dark:text-gray-400">{getTranslation(language, "pin.lockedMessage")}</p>
               </Card>
             </div>
           ) : (
@@ -713,14 +728,23 @@ export default function OnePageBinder() {
                     <div className="flex items-start space-x-3">
                       <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
-                        <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">{t.focus.getStarted}</h3>
+                        <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                          {getTranslation(language, "focus.getStarted")}
+                        </h3>
                         <button
-                          onClick={() => handleExerciseClick(focusExercises[currentExercise])}
+                          onClick={() => handleExerciseClick(focusExercises[currentExercise].key)}
                           className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 transition-colors cursor-pointer text-left"
                         >
-                          <div className="font-medium mb-1">{focusExercises[currentExercise].prompt[language]}</div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="text-lg">
+                              {getTranslation(language, `exercises.${focusExercises[currentExercise].key}.icon`)}
+                            </span>
+                            <span className="font-medium">
+                              {getTranslation(language, `exercises.${focusExercises[currentExercise].key}.title`)}
+                            </span>
+                          </div>
                           <div className="text-sm text-blue-600 dark:text-blue-400">
-                            {focusExercises[currentExercise].description[language]}
+                            {getTranslation(language, `exercises.${focusExercises[currentExercise].key}.prompt`)}
                           </div>
                         </button>
                       </div>
@@ -735,7 +759,7 @@ export default function OnePageBinder() {
                     ref={textareaRef}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder={t.editor.placeholder}
+                    placeholder={getTranslation(language, "editor.placeholder")}
                     className="min-h-[600px] border-0 resize-none focus:ring-0 text-base leading-relaxed"
                     style={{
                       fontFamily: language === "zh" ? "system-ui, -apple-system, sans-serif" : "inherit",
@@ -754,7 +778,6 @@ export default function OnePageBinder() {
       <OfflineIndicator />
       <PWAInstallPrompt />
       <PWAUpdatePrompt />
-      <TauriNativeFS />
     </div>
   )
 }
