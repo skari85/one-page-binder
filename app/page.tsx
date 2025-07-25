@@ -323,7 +323,7 @@ export default function OnePageBinder() {
           <div className="max-w-6xl mx-auto flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <img src="/qilogo.png" alt="Logo" className="w-8 h-8" />
-              <span className="font-semibold text-gray-900 dark:text-white">One Page Binder</span>
+              
             </div>
 
             <div className="flex items-center space-x-4">
