@@ -1,174 +1,173 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { toast } from "sonner"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import {
   Home,
   Download,
-  Upload,
-  Share2,
   Printer,
-  Moon,
-  Sun,
-  BookOpen,
-  FileText,
-  Clock,
+  Share2,
   Lock,
-  Unlock,
-  Languages,
-  Eye,
-  EyeOff,
+  Sun,
+  Moon,
+  FileText,
+  BookOpen,
   Brain,
+  Globe,
   Lightbulb,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { getLanguage, setLanguage, type Language } from "@/lib/language"
-import { getTranslation } from "@/lib/translations"
-import { exportToTxt, exportToDocx, exportToPdf, exportToHtml, printDocument } from "@/lib/docx-export"
-import { OfflineIndicator } from "@/components/offline-indicator"
-import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
-import { PWAUpdatePrompt } from "@/components/pwa-update-prompt"
+import { toast } from "sonner"
 import { track } from "@vercel/analytics"
 
-// Focus exercises data
-const focusExercises = [
-  {
-    id: "grounding",
-    key: "rightNow",
-  },
-  {
-    id: "today",
-    key: "todayOnly",
-  },
-  {
-    id: "perspective",
-    key: "objectView",
-  },
-  {
-    id: "metaphor",
-    key: "colorFeeling",
-  },
-  {
-    id: "constraint",
-    key: "tenWords",
-  },
-]
+import { exportToTxt, exportToDocx, exportToPdf, exportToHtml, printDocument } from "@/lib/docx-export"
+import { getTranslation } from "@/lib/translations"
+import { getDefaultLanguage, setLanguage, type Language } from "@/lib/language"
+
+interface FocusExercise {
+  id: string
+  prompt: string
+}
 
 export default function OnePageBinder() {
-  const [isLandingPage, setIsLandingPage] = useState(true)
+  // Core state
   const [content, setContent] = useState("")
-  const [isBookView, setIsBookView] = useState(false)
-  const [pageSize, setPageSize] = useState("a4")
-  const [timestampFormat, setTimestampFormat] = useState("locale")
-  const [customTimestampFormat, setCustomTimestampFormat] = useState("YYYY-MM-DD HH:mm:ss")
   const [isLocked, setIsLocked] = useState(false)
   const [pin, setPin] = useState("")
-  const [enteredPin, setEnteredPin] = useState("")
-  const [showPin, setShowPin] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [currentExercise, setCurrentExercise] = useState(0)
-  const [showExerciseCard, setShowExerciseCard] = useState(false)
+  const [storedPin, setStoredPin] = useState("")
+  const [pinInput, setPinInput] = useState("")
+  const [isSettingPin, setIsSettingPin] = useState(false)
+  const [confirmPin, setConfirmPin] = useState("")
   const [language, setLanguageState] = useState<Language>("en")
+  const [showLanding, setShowLanding] = useState(true)
 
-  const { theme, setTheme } = useTheme()
+  // UI state
+  const [viewMode, setViewMode] = useState<"single" | "book">("single")
+  const [pageSize, setPageSize] = useState<"a4" | "letter" | "a5">("a4")
+  const [timestampFormat, setTimestampFormat] = useState<"none" | "iso" | "locale" | "custom">("none")
+  const [autoSave, setAutoSave] = useState(true)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [wordCount, setWordCount] = useState(0)
+  const [characterCount, setCharacterCount] = useState(0)
+
+  // Focus exercises
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
+  const [showExerciseCard, setShowExerciseCard] = useState(false)
+
+  // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { theme, setTheme } = useTheme()
 
-  // Focus exercises data
-  const focusExercises = [
-    {
-      id: "grounding",
-      key: "rightNow",
-    },
-    {
-      id: "today",
-      key: "todayOnly",
-    },
-    {
-      id: "perspective",
-      key: "objectView",
-    },
-    {
-      id: "metaphor",
-      key: "colorFeeling",
-    },
-    {
-      id: "constraint",
-      key: "tenWords",
-    },
+  // Get translation helper
+  const t = useCallback((key: string) => getTranslation(language, key), [language])
+
+  // Focus exercises
+  const focusExercises: FocusExercise[] = [
+    { id: "notice", prompt: t("focus.exercises.0") },
+    { id: "today", prompt: t("focus.exercises.1") },
+    { id: "object", prompt: t("focus.exercises.2") },
+    { id: "color", prompt: t("focus.exercises.3") },
+    { id: "truth", prompt: t("focus.exercises.4") },
   ]
 
-  // Initialize language
+  // Initialize
   useEffect(() => {
-    setLanguageState(getLanguage())
+    const savedLanguage = getDefaultLanguage()
+    setLanguageState(savedLanguage)
+
+    const savedContent = localStorage.getItem("content")
+    if (savedContent) setContent(savedContent)
+
+    const savedPin = localStorage.getItem("pin")
+    if (savedPin) {
+      setStoredPin(savedPin)
+      setIsLocked(true)
+    }
+
+    const savedViewMode = localStorage.getItem("viewMode") as "single" | "book"
+    if (savedViewMode) setViewMode(savedViewMode)
+
+    const savedPageSize = localStorage.getItem("pageSize") as "a4" | "letter" | "a5"
+    if (savedPageSize) setPageSize(savedPageSize)
+
+    const savedTimestampFormat = localStorage.getItem("timestampFormat") as "none" | "iso" | "locale" | "custom"
+    if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat)
+
+    // Set random exercise index
+    setCurrentExerciseIndex(Math.floor(Math.random() * focusExercises.length))
   }, [])
 
-  // Auto-save functionality
+  // Auto-save
   useEffect(() => {
-    if (content && !isLandingPage) {
+    if (autoSave && content) {
       const timer = setTimeout(() => {
-        localStorage.setItem("one-page-binder-content", content)
+        localStorage.setItem("content", content)
         setLastSaved(new Date())
       }, 1000)
       return () => clearTimeout(timer)
     }
-  }, [content, isLandingPage])
+  }, [content, autoSave])
 
-  // Load saved content
+  // Update counts
   useEffect(() => {
-    const saved = localStorage.getItem("one-page-binder-content")
-    if (saved) {
-      setContent(saved)
-    }
+    const words = content
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length
+    const characters = content.length
+    setWordCount(words)
+    setCharacterCount(characters)
 
-    // Set random exercise on load
-    setCurrentExercise(Math.floor(Math.random() * focusExercises.length))
-  }, [])
+    // Show exercise card if content is empty
+    setShowExerciseCard(content.trim().length === 0)
+  }, [content])
 
-  // Show exercise card when editor is empty
-  useEffect(() => {
-    setShowExerciseCard(!isLandingPage && content.trim() === "")
-  }, [content, isLandingPage])
-
+  // Language change handler
   const handleLanguageChange = (newLanguage: Language) => {
-    setLanguage(newLanguage)
     setLanguageState(newLanguage)
+    setLanguage(newLanguage)
+    track("language_changed", { language: newLanguage })
   }
 
-  const handleEnterApp = () => {
-    setIsLandingPage(false)
-    track("enter_app")
-  }
-
-  const handleGoHome = () => {
-    setIsLandingPage(true)
-    track("go_home")
-  }
-
-  const handleExport = async (format: string) => {
-    if (!content.trim()) {
-      toast.error(getTranslation(language, "export.noContent"))
-      return
+  // PIN handlers
+  const handleSetPin = () => {
+    if (pin === confirmPin && pin.length >= 4) {
+      setStoredPin(pin)
+      localStorage.setItem("pin", pin)
+      setIsSettingPin(false)
+      setPin("")
+      setConfirmPin("")
+      toast.success(t("app.pinSet"))
     }
+  }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-    const filename = `one-page-binder-${timestamp}`
+  const handleUnlock = () => {
+    if (pinInput === storedPin) {
+      setIsLocked(false)
+      setPinInput("")
+    } else {
+      toast.error(t("app.wrongPin"))
+    }
+  }
+
+  const handleLock = () => {
+    if (storedPin) {
+      setIsLocked(true)
+    } else {
+      setIsSettingPin(true)
+    }
+  }
+
+  // Export handlers
+  const handleExport = (format: "txt" | "docx" | "pdf" | "html") => {
+    const filename = `document-${new Date().toISOString().split("T")[0]}`
 
     try {
       switch (format) {
@@ -176,13 +175,7 @@ export default function OnePageBinder() {
           exportToTxt(content, filename)
           break
         case "docx":
-          await exportToDocx(content, filename, {
-            title: "One Page Binder Document",
-            author: "One Page Binder",
-            includeTimestamp: true,
-            timestampFormat: timestampFormat as any,
-            customTimestampFormat,
-          })
+          exportToDocx(content, filename)
           break
         case "pdf":
           exportToPdf(content, filename)
@@ -191,28 +184,15 @@ export default function OnePageBinder() {
           exportToHtml(content, filename)
           break
       }
-      toast.success(getTranslation(language, "export.success"))
       track("export", { format })
+      toast.success(`Exported as ${format.toUpperCase()}`)
     } catch (error) {
-      toast.error(getTranslation(language, "export.error"))
+      toast.error(`Failed to export as ${format.toUpperCase()}`)
     }
   }
 
-  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = e.target?.result as string
-      setContent(text)
-      toast.success(getTranslation(language, "import.success"))
-      track("import")
-    }
-    reader.readAsText(file)
-  }
-
-  const handleShare = async (platform: string) => {
+  // Share handlers
+  const handleShare = (platform: string) => {
     const text = content.slice(0, 100) + (content.length > 100 ? "..." : "")
     const url = window.location.href
 
@@ -227,557 +207,422 @@ export default function OnePageBinder() {
       case "linkedin":
         shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`
         break
+      case "email":
+        shareUrl = `mailto:?subject=Shared from One Page Binder&body=${encodeURIComponent(text + "\n\n" + url)}`
+        break
     }
 
     if (shareUrl) {
-      window.open(shareUrl, "_blank", "width=600,height=400")
+      window.open(shareUrl, "_blank")
       track("share", { platform })
     }
   }
 
-  const handleLock = () => {
-    if (!pin) {
-      toast.error(getTranslation(language, "pin.setPinFirst"))
-      return
-    }
-    setIsLocked(true)
-    track("lock")
-  }
-
-  const handleUnlock = () => {
-    if (enteredPin === pin) {
-      setIsLocked(false)
-      setEnteredPin("")
-      toast.success(getTranslation(language, "pin.unlocked"))
-      track("unlock")
-    } else {
-      toast.error(getTranslation(language, "pin.incorrect"))
-    }
-  }
-
-  const useExercise = (exerciseKey: string) => {
-    const prompt = getTranslation(language, `exercises.${exerciseKey}.prompt`)
-    setContent((prev) => (prev ? `${prev}\n\n${prompt} ` : `${prompt} `))
+  // Focus exercise handlers
+  const handleUseExercise = (exercise: FocusExercise) => {
+    setContent(exercise.prompt + " ")
     setShowExerciseCard(false)
     textareaRef.current?.focus()
-    track("use_exercise", { exercise: exerciseKey })
+    track("focus_exercise_used", { exercise: exercise.id })
   }
 
-  const getPageSizeClass = () => {
-    switch (pageSize) {
-      case "letter":
-        return "max-w-[8.5in] min-h-[11in]"
-      case "a5":
-        return "max-w-[5.8in] min-h-[8.3in]"
-      default:
-        return "max-w-[8.3in] min-h-[11.7in]" // A4
+  const handleRandomExercise = () => {
+    const randomIndex = Math.floor(Math.random() * focusExercises.length)
+    setCurrentExerciseIndex(randomIndex)
+    handleUseExercise(focusExercises[randomIndex])
+  }
+
+  // Add timestamp
+  const addTimestamp = () => {
+    if (timestampFormat === "none") return
+
+    let timestamp = ""
+    const now = new Date()
+
+    switch (timestampFormat) {
+      case "iso":
+        timestamp = now.toISOString()
+        break
+      case "locale":
+        timestamp = now.toLocaleString()
+        break
+      case "custom":
+        timestamp = now.toLocaleDateString()
+        break
     }
-  }
 
-  const handleExerciseClick = (exerciseKey: string) => {
-    setContent((prev) =>
-      prev
-        ? `${prev}\n\n${getTranslation(language, `exercises.${exerciseKey}.prompt`)}`
-        : `${getTranslation(language, `exercises.${exerciseKey}.prompt`)}`,
-    )
-    setShowExerciseCard(false)
+    const newContent = content + (content ? "\n\n" : "") + `[${timestamp}] `
+    setContent(newContent)
     textareaRef.current?.focus()
-    track("use_exercise", { exercise: exerciseKey })
   }
 
-  const handleToggleBookView = () => {
-    setIsBookView(!isBookView)
-  }
-
-  const handleToggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
-  }
-
-  const handleTimestampFormatChange = (newFormat: string) => {
-    setTimestampFormat(newFormat)
-  }
-
-  const handleCustomTimestampFormatChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCustomTimestampFormat(e.target.value)
-  }
-
-  const handleShowPinToggle = () => {
-    setShowPin(!showPin)
-  }
-
-  if (isLandingPage) {
+  // Landing page
+  if (showLanding) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col">
+      <div className="min-h-screen bg-white flex flex-col">
         {/* Header */}
-        <header className="border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <img src="/qilogo.png" alt="Logo" className="w-8 h-8" />
-              <span className="text-xl font-bold">{getTranslation(language, "appName")}</span>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <Languages className="w-4 h-4 mr-2" />
-                    {language === "en" ? "English" : "中文"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleLanguageChange("en")}>English</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleLanguageChange("zh")}>中文</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+        <header className="flex justify-between items-center p-6">
+          <div className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            <Select value={language} onValueChange={handleLanguageChange}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="zh">中文</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </header>
 
-        {/* Main Content */}
-        <main className="flex-1 flex items-center justify-center px-4">
-          <div className="text-center max-w-2xl mx-auto">
-            <img src="/qilogo.png" alt="One Page Binder" className="w-24 h-24 mx-auto mb-8" />
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              {getTranslation(language, "landing.title")}
-            </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-              {getTranslation(language, "landing.subtitle")}
-            </p>
-            <Button onClick={handleEnterApp} size="lg" className="px-8 py-3 text-lg">
-              {getTranslation(language, "landing.enter")}
+        {/* Main content */}
+        <main className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="text-center space-y-8 max-w-md">
+            <div className="space-y-4">
+              <h1 className="text-6xl font-light text-gray-900">{t("landing.title")}</h1>
+              <p className="text-xl text-gray-600">{t("landing.subtitle")}</p>
+            </div>
+
+            <Button onClick={() => setShowLanding(false)} size="lg" className="px-12 py-3 text-lg">
+              {t("landing.enter")}
             </Button>
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-gray-200 dark:border-gray-700 px-4 py-6">
-          <div className="max-w-6xl mx-auto flex justify-center space-x-6 text-sm text-gray-600 dark:text-gray-400">
+        <footer className="p-6 text-center">
+          <div className="flex justify-center gap-6 text-sm text-gray-500">
             <Dialog>
               <DialogTrigger asChild>
-                <button className="hover:text-gray-900 dark:hover:text-white transition-colors">
-                  {getTranslation(language, "footer.privacy")}
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{getTranslation(language, "privacy.title")}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 text-sm">
-                  <p>{getTranslation(language, "privacy.intro")}</p>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.dataCollection.title")}</h3>
-                    <p>{getTranslation(language, "privacy.dataCollection.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.dataStorage.title")}</h3>
-                    <p>{getTranslation(language, "privacy.dataStorage.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.dataSharing.title")}</h3>
-                    <p>{getTranslation(language, "privacy.dataSharing.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.userRights.title")}</h3>
-                    <p>{getTranslation(language, "privacy.userRights.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "privacy.contact.title")}</h3>
-                    <p>{getTranslation(language, "privacy.contact.content")}</p>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="hover:text-gray-900 dark:hover:text-white transition-colors">
-                  {getTranslation(language, "footer.terms")}
-                </button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{getTranslation(language, "terms.title")}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 text-sm">
-                  <p>{getTranslation(language, "terms.intro")}</p>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.acceptance.title")}</h3>
-                    <p>{getTranslation(language, "terms.acceptance.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.serviceDescription.title")}</h3>
-                    <p>{getTranslation(language, "terms.serviceDescription.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">
-                      {getTranslation(language, "terms.userResponsibilities.title")}
-                    </h3>
-                    <p>{getTranslation(language, "terms.userResponsibilities.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.limitations.title")}</h3>
-                    <p>{getTranslation(language, "terms.limitations.content")}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold mb-2">{getTranslation(language, "terms.changes.title")}</h3>
-                    <p>{getTranslation(language, "terms.changes.content")}</p>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="hover:text-gray-900 dark:hover:text-white transition-colors">
-                  {getTranslation(language, "footer.contact")}
-                </button>
+                <button className="hover:text-gray-700">{t("landing.footer.privacy")}</button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{getTranslation(language, "contact.title")}</DialogTitle>
+                  <DialogTitle>{t("dialogs.privacy.title")}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <p>{getTranslation(language, "contact.intro")}</p>
-                  <div className="space-y-2">
-                    <p>
-                      <strong>{getTranslation(language, "contact.email.label")}:</strong>{" "}
-                      {getTranslation(language, "contact.email.value")}
-                    </p>
-                    <p>
-                      <strong>{getTranslation(language, "contact.website.label")}:</strong>{" "}
-                      {getTranslation(language, "contact.website.value")}
-                    </p>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {getTranslation(language, "contact.response")}
-                  </p>
-                </div>
+                <p className="text-sm text-gray-600">{t("dialogs.privacy.content")}</p>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="hover:text-gray-700">{t("landing.footer.terms")}</button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("dialogs.terms.title")}</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-gray-600">{t("dialogs.terms.content")}</p>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="hover:text-gray-700">{t("landing.footer.contact")}</button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("dialogs.contact.title")}</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-gray-600">{t("dialogs.contact.content")}</p>
               </DialogContent>
             </Dialog>
           </div>
         </footer>
-
-        <OfflineIndicator />
-        <PWAInstallPrompt />
-        <PWAUpdatePrompt />
       </div>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-      {/* Header Toolbar */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" onClick={handleGoHome} className="flex items-center space-x-1">
-              <Home className="w-4 h-4" />
-              <span className="hidden sm:inline">{getTranslation(language, "toolbar.home")}</span>
-            </Button>
-
-            <Separator orientation="vertical" className="h-6" />
-
-            <div className="flex items-center space-x-1">
-              <Button variant={isBookView ? "default" : "ghost"} size="sm" onClick={handleToggleBookView}>
-                <BookOpen className="w-4 h-4" />
-                <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.bookView")}</span>
-              </Button>
-
-              <Select value={pageSize} onValueChange={setPageSize}>
-                <SelectTrigger className="w-20 h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="a4">A4</SelectItem>
-                  <SelectItem value="letter">Letter</SelectItem>
-                  <SelectItem value="a5">A5</SelectItem>
-                </SelectContent>
-              </Select>
+  // PIN lock screen
+  if (isLocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 space-y-4">
+            <div className="text-center">
+              <Lock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h2 className="text-xl font-semibold">{t("app.enterPin")}</h2>
             </div>
+            <input
+              type="password"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              className="w-full p-3 border rounded-lg text-center text-2xl tracking-widest"
+              placeholder="••••"
+              maxLength={6}
+              onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+            />
+            <Button onClick={handleUnlock} className="w-full">
+              {t("app.unlock")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // PIN setup dialog
+  if (isSettingPin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 space-y-4">
+            <div className="text-center">
+              <Lock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h2 className="text-xl font-semibold">{t("app.setPin")}</h2>
+            </div>
+            <input
+              type="password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              className="w-full p-3 border rounded-lg text-center text-2xl tracking-widest"
+              placeholder="••••"
+              maxLength={6}
+            />
+            <input
+              type="password"
+              value={confirmPin}
+              onChange={(e) => setConfirmPin(e.target.value)}
+              className="w-full p-3 border rounded-lg text-center text-2xl tracking-widest"
+              placeholder={t("app.confirmPin")}
+              maxLength={6}
+            />
+            <div className="flex gap-2">
+              <Button onClick={() => setIsSettingPin(false)} variant="outline" className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleSetPin} className="flex-1">
+                {t("app.setPin")}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Main app
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowLanding(true)}>
+              <Home className="h-4 w-4" />
+            </Button>
+            <h1 className="text-lg font-semibold">{t("app.title")}</h1>
           </div>
 
-          <div className="flex items-center space-x-2">
-            {/* Focus Exercises Dropdown */}
+          <div className="flex items-center gap-2">
+            {/* Focus exercises dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
-                  <Brain className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">{getTranslation(language, "focus.title")}</span>
+                  <Brain className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-80">
-                <div className="p-2">
-                  <h4 className="font-medium mb-2">{getTranslation(language, "focus.title")}</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                    {getTranslation(language, "focus.subtitle")}
-                  </p>
+              <DropdownMenuContent align="end" className="w-80">
+                <div className="p-3 border-b">
+                  <h3 className="font-semibold">{t("focus.title")}</h3>
+                  <p className="text-sm text-gray-600">{t("focus.subtitle")}</p>
                 </div>
-                <DropdownMenuSeparator />
-                {focusExercises.map((exercise) => (
+                {focusExercises.map((exercise, index) => (
                   <DropdownMenuItem
                     key={exercise.id}
-                    onClick={() => handleExerciseClick(exercise.key)}
-                    className="flex-col items-start p-3 cursor-pointer"
+                    onClick={() => handleUseExercise(exercise)}
+                    className="p-3 cursor-pointer"
                   >
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-lg">{getTranslation(language, `exercises.${exercise.key}.icon`)}</span>
-                      <span className="font-medium text-sm">
-                        {getTranslation(language, `exercises.${exercise.key}.title`)}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                      {getTranslation(language, `exercises.${exercise.key}.prompt`)}
+                    <div className="flex items-start gap-2">
+                      <Lightbulb className="h-4 w-4 mt-0.5 text-yellow-500" />
+                      <span className="text-sm">{exercise.prompt}</span>
                     </div>
                   </DropdownMenuItem>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.export")}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleExport("txt")}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  {getTranslation(language, "export.formats.txt")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("docx")}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  {getTranslation(language, "export.formats.docx")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("pdf")}>
-                  <Printer className="w-4 h-4 mr-2" />
-                  {getTranslation(language, "export.formats.pdf")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("html")}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  {getTranslation(language, "export.formats.html")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.import")}</span>
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Share2 className="w-4 h-4" />
-                  <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.share")}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleShare("twitter")}>Twitter</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleShare("facebook")}>Facebook</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleShare("linkedin")}>LinkedIn</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => printDocument(content, getTranslation(language, "appName"))}
-            >
-              <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline ml-1">{getTranslation(language, "toolbar.print")}</span>
-            </Button>
-
-            <Separator orientation="vertical" className="h-6" />
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Clock className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <div className="p-3 space-y-3">
-                  <div>
-                    <Label className="text-xs">{getTranslation(language, "timestamp.format")}</Label>
-                    <Select value={timestampFormat} onValueChange={handleTimestampFormatChange}>
-                      <SelectTrigger className="w-full mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="iso">{getTranslation(language, "timestamp.formats.iso")}</SelectItem>
-                        <SelectItem value="locale">{getTranslation(language, "timestamp.formats.locale")}</SelectItem>
-                        <SelectItem value="custom">{getTranslation(language, "timestamp.formats.custom")}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                <Separator />
+                <DropdownMenuItem onClick={handleRandomExercise} className="p-3">
+                  <div className="flex items-center gap-2">
+                    <Brain className="h-4 w-4" />
+                    <span>Random Exercise</span>
                   </div>
-                  {timestampFormat === "custom" && (
-                    <div>
-                      <Label className="text-xs">{getTranslation(language, "timestamp.customFormat")}</Label>
-                      <Input
-                        value={customTimestampFormat}
-                        onChange={handleCustomTimestampFormatChange}
-                        className="mt-1"
-                        placeholder="YYYY-MM-DD HH:mm:ss"
-                      />
-                    </div>
-                  )}
-                </div>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {isLocked ? getTranslation(language, "pin.unlock") : getTranslation(language, "pin.setup")}
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  {!isLocked ? (
-                    <>
-                      <div>
-                        <Label>{getTranslation(language, "pin.setPin")}</Label>
-                        <div className="relative">
-                          <Input
-                            type={showPin ? "text" : "password"}
-                            value={pin}
-                            onChange={(e) => setPin(e.target.value)}
-                            className="pr-10"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3"
-                            onClick={handleShowPinToggle}
-                          >
-                            {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          </Button>
-                        </div>
-                      </div>
-                      <Button onClick={handleLock} disabled={!pin}>
-                        {getTranslation(language, "pin.lock")}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <Label>{getTranslation(language, "pin.enterPin")}</Label>
-                        <Input
-                          type="password"
-                          value={enteredPin}
-                          onChange={(e) => setEnteredPin(e.target.value)}
-                          onKeyPress={(e) => e.key === "Enter" && handleUnlock()}
-                        />
-                      </div>
-                      <Button onClick={handleUnlock}>{getTranslation(language, "pin.unlock")}</Button>
-                    </>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-
+            {/* Export dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm">
-                  <Languages className="w-4 h-4" />
+                  <Download className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleLanguageChange("en")}>English</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleLanguageChange("zh")}>中文</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("txt")}>{t("app.exportOptions.txt")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("docx")}>{t("app.exportOptions.docx")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("pdf")}>{t("app.exportOptions.pdf")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("html")}>{t("app.exportOptions.html")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="sm" onClick={handleToggleTheme}>
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {/* Print */}
+            <Button variant="ghost" size="sm" onClick={() => printDocument(content, "Document")}>
+              <Printer className="h-4 w-4" />
+            </Button>
+
+            {/* Share dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleShare("twitter")}>
+                  {t("app.shareOptions.twitter")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleShare("facebook")}>
+                  {t("app.shareOptions.facebook")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleShare("linkedin")}>
+                  {t("app.shareOptions.linkedin")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleShare("email")}>{t("app.shareOptions.email")}</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Theme toggle */}
+            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+
+            {/* Language selector */}
+            <Select value={language} onValueChange={handleLanguageChange}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">EN</SelectItem>
+                <SelectItem value="zh">中文</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Lock button */}
+            <Button variant="ghost" size="sm" onClick={handleLock}>
+              <Lock className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {lastSaved && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
-            {getTranslation(language, "autosave.saved")}: {lastSaved.toLocaleTimeString()}
+        {/* Status bar */}
+        <div className="flex items-center justify-between mt-2 text-sm text-gray-500">
+          <div className="flex items-center gap-4">
+            <span>
+              {wordCount} {t("app.wordCount")}
+            </span>
+            <span>
+              {characterCount} {t("app.characterCount")}
+            </span>
+            {lastSaved && (
+              <span>
+                {t("app.autoSave")}: {lastSaved.toLocaleTimeString()}
+              </span>
+            )}
           </div>
-        )}
+
+          <div className="flex items-center gap-2">
+            <Select value={viewMode} onValueChange={(value: "single" | "book") => setViewMode(value)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="single">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    {t("app.singlePage")}
+                  </div>
+                </SelectItem>
+                <SelectItem value="book">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    {t("app.bookView")}
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={pageSize} onValueChange={(value: "a4" | "letter" | "a5") => setPageSize(value)}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="a4">A4</SelectItem>
+                <SelectItem value="letter">Letter</SelectItem>
+                <SelectItem value="a5">A5</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 p-4 overflow-auto">
+      {/* Main content */}
+      <main className="p-6">
         <div className="max-w-4xl mx-auto">
-          {isLocked ? (
-            <div className="flex items-center justify-center h-96">
-              <Card className="p-8 text-center">
-                <Lock className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <h2 className="text-xl font-semibold mb-2">{getTranslation(language, "pin.locked")}</h2>
-                <p className="text-gray-600 dark:text-gray-400">{getTranslation(language, "pin.lockedMessage")}</p>
-              </Card>
-            </div>
-          ) : (
-            <div className={`mx-auto ${getPageSizeClass()}`}>
-              {/* Focus Exercise Card */}
-              {showExerciseCard && (
-                <Card className="mb-4 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950">
-                  <CardContent className="p-4">
-                    <div className="flex items-start space-x-3">
-                      <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                          {getTranslation(language, "focus.getStarted")}
-                        </h3>
-                        <button
-                          onClick={() => handleExerciseClick(focusExercises[currentExercise].key)}
-                          className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 transition-colors cursor-pointer text-left"
-                        >
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="text-lg">
-                              {getTranslation(language, `exercises.${focusExercises[currentExercise].key}.icon`)}
-                            </span>
-                            <span className="font-medium">
-                              {getTranslation(language, `exercises.${focusExercises[currentExercise].key}.title`)}
-                            </span>
-                          </div>
-                          <div className="text-sm text-blue-600 dark:text-blue-400">
-                            {getTranslation(language, `exercises.${focusExercises[currentExercise].key}.prompt`)}
-                          </div>
-                        </button>
-                      </div>
+          {/* Focus exercise card */}
+          {showExerciseCard && (
+            <Card className="mb-6 border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Lightbulb className="h-5 w-5 text-yellow-500 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{t("focus.contextualPrompt")}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {focusExercises[currentExerciseIndex].prompt}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUseExercise(focusExercises[currentExerciseIndex])}
+                      >
+                        {t("focus.tryExercise")}
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-              <Card className={`${isBookView ? "shadow-lg" : "shadow-sm"} transition-shadow`}>
-                <CardContent className="p-0">
-                  <Textarea
-                    ref={textareaRef}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder={getTranslation(language, "editor.placeholder")}
-                    className="min-h-[600px] border-0 resize-none focus:ring-0 text-base leading-relaxed"
-                    style={{
-                      fontFamily: language === "zh" ? "system-ui, -apple-system, sans-serif" : "inherit",
-                    }}
-                  />
-                </CardContent>
-              </Card>
+          {/* Writing area */}
+          <Card
+            className={`${
+              pageSize === "a4" ? "max-w-[210mm]" : pageSize === "letter" ? "max-w-[8.5in]" : "max-w-[148mm]"
+            } mx-auto`}
+          >
+            <CardContent className="p-0">
+              <Textarea
+                ref={textareaRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder={t("app.placeholder")}
+                className={`min-h-[600px] border-0 resize-none focus:ring-0 text-lg leading-relaxed ${
+                  viewMode === "book" ? "columns-2 gap-8" : ""
+                }`}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Timestamp button */}
+          {timestampFormat !== "none" && (
+            <div className="text-center mt-4">
+              <Button variant="outline" onClick={addTimestamp}>
+                Add {t("app.timestamp")}
+              </Button>
             </div>
           )}
         </div>
       </main>
-
-      {/* Hidden file input */}
-      <input ref={fileInputRef} type="file" accept=".txt,.md,.html" onChange={handleImport} className="hidden" />
-
-      <OfflineIndicator />
-      <PWAInstallPrompt />
-      <PWAUpdatePrompt />
     </div>
   )
 }
