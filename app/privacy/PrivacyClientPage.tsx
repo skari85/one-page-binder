@@ -1,15 +1,11 @@
-import type { Metadata } from "next"
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft } from "lucide-react"
 
-export const metadata: Metadata = {
-  title: "Terms of Service - Qi",
-  description: "Terms of service for using Qi, the privacy-focused writing app.",
-}
-
-export default function TermsPage() {
+export default function PrivacyClientPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-2xl mx-auto">
@@ -24,20 +20,20 @@ export default function TermsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Terms of Service</CardTitle>
+            <CardTitle>Privacy Policy</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p>
-              By using this application, you agree to use it responsibly and in accordance with applicable laws. The
-              application is provided as-is without warranties.
+              Your privacy is important to us. This application stores all data locally on your device. We do not
+              collect, store, or transmit any personal information or writing content to external servers.
             </p>
             <p>
-              You are responsible for backing up your content. While the application auto-saves to local storage, we
-              recommend regularly exporting your work.
+              All your writing, settings, and preferences are stored in your browser's local storage. This means your
+              data never leaves your device unless you explicitly export it.
             </p>
             <p>
-              The application is free to use and open source. You may modify and distribute it according to the license
-              terms.
+              We use Vercel Analytics to understand how the application is used, but this only tracks page views and
+              does not collect any personal information or content.
             </p>
           </CardContent>
         </Card>

@@ -2,82 +2,73 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Download } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Download, X } from "lucide-react"
 
 interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>
 }
 
 export function PWAInstallPrompt() {
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [isInstalled, setIsInstalled] = useState(false)
-  const [isStandalone, setIsStandalone] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [showPrompt, setShowPrompt] = useState(false)
 
   useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) {
-      setIsStandalone(true)
-    }
-
-    // Listen for the beforeinstallprompt event
-    const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent Chrome 67 and earlier from automatically showing the prompt
+    const handler = (e: Event) => {
       e.preventDefault()
-      // Store the event so it can be triggered later
-      setInstallPrompt(e as BeforeInstallPromptEvent)
+      setDeferredPrompt(e as BeforeInstallPromptEvent)
+      setShowPrompt(true)
     }
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
-
-    // Listen for app installed event
-    window.addEventListener("appinstalled", () => {
-      setIsInstalled(true)
-      setInstallPrompt(null)
-    })
+    window.addEventListener("beforeinstallprompt", handler)
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+      window.removeEventListener("beforeinstallprompt", handler)
     }
   }, [])
 
-  const handleInstallClick = async () => {
-    if (!installPrompt) return
+  const handleInstall = async () => {
+    if (!deferredPrompt) return
 
-    // Show the install prompt
-    await installPrompt.prompt()
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
 
-    // Wait for the user to respond to the prompt
-    const choiceResult = await installPrompt.userChoice
-    
-    if (choiceResult.outcome === "accepted") {
-      console.log("User accepted the install prompt")
-    } else {
-      console.log("User dismissed the install prompt")
+    if (outcome === "accepted") {
+      setShowPrompt(false)
     }
-    
-    // Clear the saved prompt since it can't be used again
-    setInstallPrompt(null)
+
+    setDeferredPrompt(null)
   }
 
-  // Don't show if already installed or in standalone mode
-  if (isInstalled || isStandalone) return null
+  const handleDismiss = () => {
+    setShowPrompt(false)
+    setDeferredPrompt(null)
+  }
 
-  // Only show if we have the install prompt
-  if (!installPrompt) return null
+  if (!showPrompt) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-background border rounded-lg shadow-lg p-4 max-w-xs">
-      <div className="flex flex-col space-y-3">
-        <div className="font-medium">Install One Page Binder</div>
-        <p className="text-sm text-muted-foreground">
-          Install this app on your device for quick access even when offline.
-        </p>
-        <Button onClick={handleInstallClick} className="w-full">
-          <Download className="w-4 h-4 mr-2" />
-          Install App
-        </Button>
-      </div>
-    </div>
+    <Card className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Download className="w-5 h-5" />
+            <div>
+              <p className="font-medium text-sm">Install Qi</p>
+              <p className="text-xs text-muted-foreground">Add to home screen for quick access</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleInstall}>
+              Install
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleDismiss}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

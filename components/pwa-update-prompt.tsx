@@ -2,71 +2,66 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { RefreshCw } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { RefreshCw, X } from "lucide-react"
 
 export function PWAUpdatePrompt() {
-  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false)
-  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null)
+  const [showPrompt, setShowPrompt] = useState(false)
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null)
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-      return
-    }
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        setRegistration(reg)
 
-    // Create a custom event channel for the service worker to communicate with this component
-    const channel = new BroadcastChannel('sw-updates')
-    channel.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
-        setShowUpdatePrompt(true)
-        setWaitingWorker(event.data.sw)
-      }
-    })
-
-    // Check for updates when the component mounts
-    const checkForUpdates = async () => {
-      const registration = await navigator.serviceWorker.getRegistration()
-      if (registration?.waiting) {
-        // There's an update ready to be applied
-        setShowUpdatePrompt(true)
-        setWaitingWorker(registration.waiting)
-      }
-    }
-
-    checkForUpdates()
-
-    // Listen for new service workers
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      // The service worker has taken control, reload the page to ensure all assets are updated
-      window.location.reload()
-    })
-
-    return () => {
-      channel.close()
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing
+          if (newWorker) {
+            newWorker.addEventListener("statechange", () => {
+              if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                setShowPrompt(true)
+              }
+            })
+          }
+        })
+      })
     }
   }, [])
 
   const handleUpdate = () => {
-    if (!waitingWorker) return
-
-    // Send a message to the service worker to skip waiting
-    waitingWorker.postMessage({ type: 'SKIP_WAITING' })
-    setShowUpdatePrompt(false)
+    if (registration?.waiting) {
+      registration.waiting.postMessage({ type: "SKIP_WAITING" })
+      window.location.reload()
+    }
   }
 
-  if (!showUpdatePrompt) return null
+  const handleDismiss = () => {
+    setShowPrompt(false)
+  }
+
+  if (!showPrompt) return null
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 bg-background border rounded-lg shadow-lg p-4 max-w-xs">
-      <div className="flex flex-col space-y-3">
-        <div className="font-medium">Update Available</div>
-        <p className="text-sm text-muted-foreground">
-          A new version of One Page Binder is available. Refresh to update.
-        </p>
-        <Button onClick={handleUpdate} className="w-full">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Update Now
-        </Button>
-      </div>
-    </div>
+    <Card className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="w-5 h-5" />
+            <div>
+              <p className="font-medium text-sm">Update Available</p>
+              <p className="text-xs text-muted-foreground">A new version is ready to install</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleUpdate}>
+              Update
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleDismiss}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
