@@ -1,157 +1,135 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import {
-  Home,
-  Download,
-  Printer,
-  Share2,
-  Lock,
-  Sun,
-  Moon,
-  FileText,
-  BookOpen,
-  Brain,
-  Globe,
-  Lightbulb,
-} from "lucide-react"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
+import {
+  Home,
+  Eye,
+  BookOpen,
+  FileText,
+  Share2,
+  Download,
+  Printer,
+  Upload,
+  Clock,
+  Lock,
+  Unlock,
+  Sun,
+  Moon,
+  Globe,
+  Brain,
+  Lightbulb,
+} from "lucide-react"
+import { getTranslation, type Language } from "@/lib/translations"
+import { getStoredLanguage, setStoredLanguage } from "@/lib/language"
+import { exportToTxt, exportToDocx, exportToPdf, exportToHtml } from "@/lib/docx-export"
 import { track } from "@vercel/analytics"
 
-import { exportToTxt, exportToDocx, exportToPdf, exportToHtml, printDocument } from "@/lib/docx-export"
-import { getTranslation } from "@/lib/translations"
-import { getDefaultLanguage, setLanguage, type Language } from "@/lib/language"
+type ViewMode = "single" | "book"
+type PageSize = "A4" | "Letter" | "A5"
+type TimestampFormat = "none" | "date" | "time" | "datetime" | "iso"
 
-interface FocusExercise {
-  id: string
-  prompt: string
-}
+const focusExercises = ["grounding", "today", "object", "color", "truth"] as const
 
 export default function OnePageBinder() {
-  // Core state
+  // State management
+  const [showApp, setShowApp] = useState(false)
   const [content, setContent] = useState("")
+  const [language, setLanguage] = useState<Language>("en")
+  const [viewMode, setViewMode] = useState<ViewMode>("single")
+  const [pageSize, setPageSize] = useState<PageSize>("A4")
+  const [timestampFormat, setTimestampFormat] = useState<TimestampFormat>("none")
   const [isLocked, setIsLocked] = useState(false)
   const [pin, setPin] = useState("")
   const [storedPin, setStoredPin] = useState("")
-  const [pinInput, setPinInput] = useState("")
-  const [isSettingPin, setIsSettingPin] = useState(false)
-  const [confirmPin, setConfirmPin] = useState("")
-  const [language, setLanguageState] = useState<Language>("en")
-  const [showLanding, setShowLanding] = useState(true)
+  const [showPinDialog, setShowPinDialog] = useState(false)
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false)
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false)
+  const [showTermsDialog, setShowTermsDialog] = useState(false)
+  const [showContactDialog, setShowContactDialog] = useState(false)
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"saved" | "saving" | "">("")
+  const [currentExercise, setCurrentExercise] = useState(0)
+  const [showSuggestion, setShowSuggestion] = useState(true)
 
-  // UI state
-  const [viewMode, setViewMode] = useState<"single" | "book">("single")
-  const [pageSize, setPageSize] = useState<"a4" | "letter" | "a5">("a4")
-  const [timestampFormat, setTimestampFormat] = useState<"none" | "iso" | "locale" | "custom">("none")
-  const [autoSave, setAutoSave] = useState(true)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [wordCount, setWordCount] = useState(0)
-  const [characterCount, setCharacterCount] = useState(0)
-
-  // Focus exercises
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
-  const [showExerciseCard, setShowExerciseCard] = useState(false)
-
-  // Refs
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { theme, setTheme } = useTheme()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Get translation helper
-  const t = useCallback((key: string) => getTranslation(language, key), [language])
+  const t = (key: string) => getTranslation(language, key)
 
-  // Focus exercises
-  const focusExercises: FocusExercise[] = [
-    { id: "notice", prompt: t("focus.exercises.0") },
-    { id: "today", prompt: t("focus.exercises.1") },
-    { id: "object", prompt: t("focus.exercises.2") },
-    { id: "color", prompt: t("focus.exercises.3") },
-    { id: "truth", prompt: t("focus.exercises.4") },
-  ]
-
-  // Initialize
+  // Initialize language and content
   useEffect(() => {
-    const savedLanguage = getDefaultLanguage()
-    setLanguageState(savedLanguage)
+    const savedLanguage = getStoredLanguage()
+    setLanguage(savedLanguage)
 
-    const savedContent = localStorage.getItem("content")
-    if (savedContent) setContent(savedContent)
+    const savedContent = localStorage.getItem("qi-content") || ""
+    const savedPin = localStorage.getItem("qi-pin") || ""
+    const savedLocked = localStorage.getItem("qi-locked") === "true"
 
-    const savedPin = localStorage.getItem("pin")
-    if (savedPin) {
-      setStoredPin(savedPin)
-      setIsLocked(true)
-    }
+    setContent(savedContent)
+    setStoredPin(savedPin)
+    setIsLocked(savedLocked && savedPin)
+    setShowSuggestion(savedContent.trim() === "")
 
-    const savedViewMode = localStorage.getItem("viewMode") as "single" | "book"
-    if (savedViewMode) setViewMode(savedViewMode)
-
-    const savedPageSize = localStorage.getItem("pageSize") as "a4" | "letter" | "a5"
-    if (savedPageSize) setPageSize(savedPageSize)
-
-    const savedTimestampFormat = localStorage.getItem("timestampFormat") as "none" | "iso" | "locale" | "custom"
-    if (savedTimestampFormat) setTimestampFormat(savedTimestampFormat)
-
-    // Set random exercise index
-    setCurrentExerciseIndex(Math.floor(Math.random() * focusExercises.length))
+    // Set random exercise
+    setCurrentExercise(Math.floor(Math.random() * focusExercises.length))
   }, [])
 
-  // Auto-save
+  // Auto-save functionality
   useEffect(() => {
-    if (autoSave && content) {
-      const timer = setTimeout(() => {
-        localStorage.setItem("content", content)
-        setLastSaved(new Date())
-      }, 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [content, autoSave])
+    if (!content && !showApp) return
 
-  // Update counts
-  useEffect(() => {
-    const words = content
-      .trim()
-      .split(/\s+/)
-      .filter((word) => word.length > 0).length
-    const characters = content.length
-    setWordCount(words)
-    setCharacterCount(characters)
+    setAutoSaveStatus("saving")
+    const timer = setTimeout(() => {
+      localStorage.setItem("qi-content", content)
+      setAutoSaveStatus("saved")
+      setTimeout(() => setAutoSaveStatus(""), 2000)
+    }, 1000)
 
-    // Show exercise card if content is empty
-    setShowExerciseCard(content.trim().length === 0)
-  }, [content])
+    return () => clearTimeout(timer)
+  }, [content, showApp])
 
-  // Language change handler
+  // Handle language change
   const handleLanguageChange = (newLanguage: Language) => {
-    setLanguageState(newLanguage)
     setLanguage(newLanguage)
-    track("language_changed", { language: newLanguage })
+    setStoredLanguage(newLanguage)
   }
 
-  // PIN handlers
+  // PIN functionality
   const handleSetPin = () => {
-    if (pin === confirmPin && pin.length >= 4) {
+    if (pin.length === 4 && /^\d{4}$/.test(pin)) {
+      localStorage.setItem("qi-pin", pin)
       setStoredPin(pin)
-      localStorage.setItem("pin", pin)
-      setIsSettingPin(false)
+      setShowPinDialog(false)
       setPin("")
-      setConfirmPin("")
       toast.success(t("app.pinSet"))
     }
   }
 
   const handleUnlock = () => {
-    if (pinInput === storedPin) {
+    if (pin === storedPin) {
       setIsLocked(false)
-      setPinInput("")
+      localStorage.setItem("qi-locked", "false")
+      setShowUnlockDialog(false)
+      setPin("")
+      toast.success(t("app.unlocked"))
     } else {
       toast.error(t("app.wrongPin"))
     }
@@ -160,131 +138,183 @@ export default function OnePageBinder() {
   const handleLock = () => {
     if (storedPin) {
       setIsLocked(true)
+      localStorage.setItem("qi-locked", "true")
+      toast.success(t("app.locked"))
     } else {
-      setIsSettingPin(true)
+      setShowPinDialog(true)
     }
   }
 
-  // Export handlers
-  const handleExport = (format: "txt" | "docx" | "pdf" | "html") => {
-    const filename = `document-${new Date().toISOString().split("T")[0]}`
+  // Export functions
+  const handleExport = (format: string) => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-")
+    const filename = `qi-document-${timestamp}`
 
-    try {
-      switch (format) {
-        case "txt":
-          exportToTxt(content, filename)
-          break
-        case "docx":
-          exportToDocx(content, filename)
-          break
-        case "pdf":
-          exportToPdf(content, filename)
-          break
-        case "html":
-          exportToHtml(content, filename)
-          break
+    switch (format) {
+      case "txt":
+        exportToTxt(content, `${filename}.txt`)
+        break
+      case "docx":
+        exportToDocx(content, `${filename}.docx`)
+        break
+      case "pdf":
+        exportToPdf(content, `${filename}.pdf`)
+        break
+      case "html":
+        exportToHtml(content, `${filename}.html`)
+        break
+    }
+
+    track("export", { format })
+  }
+
+  // Import function
+  const handleImport = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileRead = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        setContent(text)
+        setShowSuggestion(false)
       }
-      track("export", { format })
-      toast.success(`Exported as ${format.toUpperCase()}`)
-    } catch (error) {
-      toast.error(`Failed to export as ${format.toUpperCase()}`)
+      reader.readAsText(file)
     }
   }
 
-  // Share handlers
+  // Print function
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank")
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head><title>Print Document</title></head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 40px;">
+            <pre style="white-space: pre-wrap; word-wrap: break-word;">${content}</pre>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.print()
+    }
+  }
+
+  // Share functions
   const handleShare = (platform: string) => {
     const text = content.slice(0, 100) + (content.length > 100 ? "..." : "")
     const url = window.location.href
 
-    let shareUrl = ""
     switch (platform) {
       case "twitter":
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
         break
       case "facebook":
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`)
         break
       case "linkedin":
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`)
         break
-      case "email":
-        shareUrl = `mailto:?subject=Shared from One Page Binder&body=${encodeURIComponent(text + "\n\n" + url)}`
+      case "copy":
+        navigator.clipboard.writeText(url)
+        toast.success("Link copied to clipboard")
         break
-    }
-
-    if (shareUrl) {
-      window.open(shareUrl, "_blank")
-      track("share", { platform })
     }
   }
 
-  // Focus exercise handlers
-  const handleUseExercise = (exercise: FocusExercise) => {
-    setContent(exercise.prompt + " ")
-    setShowExerciseCard(false)
-    textareaRef.current?.focus()
-    track("focus_exercise_used", { exercise: exercise.id })
-  }
-
-  const handleRandomExercise = () => {
-    const randomIndex = Math.floor(Math.random() * focusExercises.length)
-    setCurrentExerciseIndex(randomIndex)
-    handleUseExercise(focusExercises[randomIndex])
-  }
-
-  // Add timestamp
-  const addTimestamp = () => {
+  // Timestamp functions
+  const insertTimestamp = () => {
     if (timestampFormat === "none") return
 
-    let timestamp = ""
     const now = new Date()
+    let timestamp = ""
 
     switch (timestampFormat) {
+      case "date":
+        timestamp = now.toLocaleDateString()
+        break
+      case "time":
+        timestamp = now.toLocaleTimeString()
+        break
+      case "datetime":
+        timestamp = now.toLocaleString()
+        break
       case "iso":
         timestamp = now.toISOString()
         break
-      case "locale":
-        timestamp = now.toLocaleString()
-        break
-      case "custom":
-        timestamp = now.toLocaleDateString()
-        break
     }
 
-    const newContent = content + (content ? "\n\n" : "") + `[${timestamp}] `
-    setContent(newContent)
+    const textarea = textareaRef.current
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newContent = content.slice(0, start) + timestamp + content.slice(end)
+      setContent(newContent)
+
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + timestamp.length, start + timestamp.length)
+      }, 0)
+    }
+  }
+
+  // Focus exercise functions
+  const handleExerciseClick = (exerciseKey: string) => {
+    const exerciseText = t(`focus.exercises.${exerciseKey}`)
+    setContent(exerciseText + " ")
+    setShowSuggestion(false)
     textareaRef.current?.focus()
+    track("focus_exercise_used", { exercise: exerciseKey })
+  }
+
+  const handleSuggestionClick = () => {
+    const exerciseKey = focusExercises[currentExercise]
+    handleExerciseClick(exerciseKey)
+  }
+
+  // Word and character count
+  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0
+  const charCount = content.length
+
+  // Handle content change
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value)
+    setShowSuggestion(e.target.value.trim() === "")
   }
 
   // Landing page
-  if (showLanding) {
+  if (!showApp) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
         {/* Header */}
         <header className="flex justify-between items-center p-6">
           <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            <Select value={language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="zh">中文</SelectItem>
-              </SelectContent>
-            </Select>
+            <img src="/qilogo.png" alt="Qi Logo" className="w-8 h-8" />
           </div>
+          <Select value={language} onValueChange={handleLanguageChange}>
+            <SelectTrigger className="w-20 border-none shadow-none">
+              <Globe className="w-4 h-4" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">EN</SelectItem>
+              <SelectItem value="zh">中文</SelectItem>
+            </SelectContent>
+          </Select>
         </header>
 
         {/* Main content */}
-        <main className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="text-center space-y-8 max-w-md">
+        <main className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="max-w-md space-y-8">
             <div className="space-y-4">
               <h1 className="text-6xl font-light text-gray-900">{t("landing.title")}</h1>
               <p className="text-xl text-gray-600">{t("landing.subtitle")}</p>
+              <p className="text-sm text-gray-500 leading-relaxed">{t("landing.description")}</p>
             </div>
 
-            <Button onClick={() => setShowLanding(false)} size="lg" className="px-12 py-3 text-lg">
+            <Button onClick={() => setShowApp(true)} className="w-full py-3 text-lg font-medium">
               {t("landing.enter")}
             </Button>
           </div>
@@ -293,66 +323,76 @@ export default function OnePageBinder() {
         {/* Footer */}
         <footer className="p-6 text-center">
           <div className="flex justify-center gap-6 text-sm text-gray-500">
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="hover:text-gray-700">{t("landing.footer.privacy")}</button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("dialogs.privacy.title")}</DialogTitle>
-                </DialogHeader>
-                <p className="text-sm text-gray-600">{t("dialogs.privacy.content")}</p>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="hover:text-gray-700">{t("landing.footer.terms")}</button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("dialogs.terms.title")}</DialogTitle>
-                </DialogHeader>
-                <p className="text-sm text-gray-600">{t("dialogs.terms.content")}</p>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog>
-              <DialogTrigger asChild>
-                <button className="hover:text-gray-700">{t("landing.footer.contact")}</button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("dialogs.contact.title")}</DialogTitle>
-                </DialogHeader>
-                <p className="text-sm text-gray-600">{t("dialogs.contact.content")}</p>
-              </DialogContent>
-            </Dialog>
+            <button onClick={() => setShowPrivacyDialog(true)} className="hover:text-gray-700 transition-colors">
+              {t("landing.footer.privacy")}
+            </button>
+            <button onClick={() => setShowTermsDialog(true)} className="hover:text-gray-700 transition-colors">
+              {t("landing.footer.terms")}
+            </button>
+            <button onClick={() => setShowContactDialog(true)} className="hover:text-gray-700 transition-colors">
+              {t("landing.footer.contact")}
+            </button>
           </div>
         </footer>
+
+        {/* Dialogs */}
+        <Dialog open={showPrivacyDialog} onOpenChange={setShowPrivacyDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("privacy.title")}</DialogTitle>
+              <DialogDescription>{t("privacy.content")}</DialogDescription>
+            </DialogHeader>
+            <Button onClick={() => setShowPrivacyDialog(false)}>{t("privacy.close")}</Button>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("terms.title")}</DialogTitle>
+              <DialogDescription>{t("terms.content")}</DialogDescription>
+            </DialogHeader>
+            <Button onClick={() => setShowTermsDialog(false)}>{t("terms.close")}</Button>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("contact.title")}</DialogTitle>
+              <DialogDescription>{t("contact.content")}</DialogDescription>
+            </DialogHeader>
+            <Button onClick={() => setShowContactDialog(false)}>{t("contact.close")}</Button>
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
 
-  // PIN lock screen
+  // Writing app (locked state)
   if (isLocked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 space-y-4">
-            <div className="text-center">
-              <Lock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h2 className="text-xl font-semibold">{t("app.enterPin")}</h2>
+            <div className="text-center space-y-2">
+              <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
+              <h2 className="text-xl font-semibold">{t("app.unlockTitle")}</h2>
+              <p className="text-sm text-muted-foreground">{t("app.unlockDescription")}</p>
             </div>
-            <input
-              type="password"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              className="w-full p-3 border rounded-lg text-center text-2xl tracking-widest"
-              placeholder="••••"
-              maxLength={6}
-              onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="unlock-pin">{t("app.enterPin")}</Label>
+              <Input
+                id="unlock-pin"
+                type="password"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+                className="text-center text-2xl tracking-widest"
+                placeholder="••••"
+              />
+            </div>
             <Button onClick={handleUnlock} className="w-full">
               {t("app.unlock")}
             </Button>
@@ -362,119 +402,85 @@ export default function OnePageBinder() {
     )
   }
 
-  // PIN setup dialog
-  if (isSettingPin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 space-y-4">
-            <div className="text-center">
-              <Lock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-              <h2 className="text-xl font-semibold">{t("app.setPin")}</h2>
-            </div>
-            <input
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              className="w-full p-3 border rounded-lg text-center text-2xl tracking-widest"
-              placeholder="••••"
-              maxLength={6}
-            />
-            <input
-              type="password"
-              value={confirmPin}
-              onChange={(e) => setConfirmPin(e.target.value)}
-              className="w-full p-3 border rounded-lg text-center text-2xl tracking-widest"
-              placeholder={t("app.confirmPin")}
-              maxLength={6}
-            />
-            <div className="flex gap-2">
-              <Button onClick={() => setIsSettingPin(false)} variant="outline" className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleSetPin} className="flex-1">
-                {t("app.setPin")}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Main app
+  // Writing app (main interface)
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between">
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+        <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setShowLanding(true)}>
-              <Home className="h-4 w-4" />
+            <Button variant="ghost" size="sm" onClick={() => setShowApp(false)} className="gap-2">
+              <Home className="w-4 h-4" />
+              {t("app.home")}
             </Button>
-            <h1 className="text-lg font-semibold">{t("app.title")}</h1>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Focus exercises dropdown */}
+            {/* View Mode */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Brain className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="gap-2">
+                  {viewMode === "single" ? <Eye className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                  {t("app.view")}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <div className="p-3 border-b">
-                  <h3 className="font-semibold">{t("focus.title")}</h3>
-                  <p className="text-sm text-gray-600">{t("focus.subtitle")}</p>
-                </div>
-                {focusExercises.map((exercise, index) => (
-                  <DropdownMenuItem
-                    key={exercise.id}
-                    onClick={() => handleUseExercise(exercise)}
-                    className="p-3 cursor-pointer"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Lightbulb className="h-4 w-4 mt-0.5 text-yellow-500" />
-                      <span className="text-sm">{exercise.prompt}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-                <Separator />
-                <DropdownMenuItem onClick={handleRandomExercise} className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Brain className="h-4 w-4" />
-                    <span>Random Exercise</span>
-                  </div>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setViewMode("single")}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  {t("app.single")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewMode("book")}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  {t("app.book")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Export dropdown */}
+            {/* Page Size */}
+            <Select value={pageSize} onValueChange={(value: PageSize) => setPageSize(value)}>
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="A4">A4</SelectItem>
+                <SelectItem value="Letter">Letter</SelectItem>
+                <SelectItem value="A5">A5</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Focus Exercises */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Download className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Brain className="w-4 h-4" />
+                  {t("focus.title")}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleExport("txt")}>{t("app.exportOptions.txt")}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("docx")}>{t("app.exportOptions.docx")}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("pdf")}>{t("app.exportOptions.pdf")}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport("html")}>{t("app.exportOptions.html")}</DropdownMenuItem>
+              <DropdownMenuContent className="w-80">
+                <div className="p-2">
+                  <h4 className="font-medium text-sm mb-2">{t("focus.subtitle")}</h4>
+                  {focusExercises.map((exercise) => (
+                    <DropdownMenuItem
+                      key={exercise}
+                      onClick={() => handleExerciseClick(exercise)}
+                      className="cursor-pointer p-3 rounded-md"
+                    >
+                      <div className="flex items-start gap-2">
+                        <Lightbulb className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                        <span className="text-sm">{t(`focus.exercises.${exercise}`)}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Print */}
-            <Button variant="ghost" size="sm" onClick={() => printDocument(content, "Document")}>
-              <Printer className="h-4 w-4" />
-            </Button>
-
-            {/* Share dropdown */}
+            {/* Share */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Share2 className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Share2 className="w-4 h-4" />
+                  {t("app.share")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
@@ -487,142 +493,204 @@ export default function OnePageBinder() {
                 <DropdownMenuItem onClick={() => handleShare("linkedin")}>
                   {t("app.shareOptions.linkedin")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleShare("email")}>{t("app.shareOptions.email")}</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleShare("copy")}>{t("app.shareOptions.copy")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Theme toggle */}
-            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {/* Export */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  {t("app.export")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExport("txt")}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  {t("app.exportOptions.txt")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("docx")}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  {t("app.exportOptions.docx")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("pdf")}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  {t("app.exportOptions.pdf")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport("html")}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  {t("app.exportOptions.html")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Print */}
+            <Button variant="ghost" size="sm" onClick={handlePrint} className="gap-2">
+              <Printer className="w-4 h-4" />
+              {t("app.print")}
             </Button>
 
-            {/* Language selector */}
+            {/* Import */}
+            <Button variant="ghost" size="sm" onClick={handleImport} className="gap-2">
+              <Upload className="w-4 h-4" />
+              {t("app.import")}
+            </Button>
+
+            {/* Timestamp */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-2">
+                  <Clock className="w-4 h-4" />
+                  {t("app.timestamp")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <div className="p-2">
+                  <Select value={timestampFormat} onValueChange={(value: TimestampFormat) => setTimestampFormat(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t("app.timestampFormats.none")}</SelectItem>
+                      <SelectItem value="date">{t("app.timestampFormats.date")}</SelectItem>
+                      <SelectItem value="time">{t("app.timestampFormats.time")}</SelectItem>
+                      <SelectItem value="datetime">{t("app.timestampFormats.datetime")}</SelectItem>
+                      <SelectItem value="iso">{t("app.timestampFormats.iso")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {timestampFormat !== "none" && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={insertTimestamp}>Insert Timestamp</DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* PIN Lock */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={storedPin ? handleLock : () => setShowPinDialog(true)}
+              className="gap-2"
+            >
+              {storedPin ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+              {t("app.pin")}
+            </Button>
+
+            {/* Theme Toggle */}
+            <Button variant="ghost" size="sm" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+
+            {/* Language */}
             <Select value={language} onValueChange={handleLanguageChange}>
               <SelectTrigger className="w-20">
-                <SelectValue />
+                <Globe className="w-4 h-4" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="en">EN</SelectItem>
                 <SelectItem value="zh">中文</SelectItem>
               </SelectContent>
             </Select>
-
-            {/* Lock button */}
-            <Button variant="ghost" size="sm" onClick={handleLock}>
-              <Lock className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Status bar */}
-        <div className="flex items-center justify-between mt-2 text-sm text-gray-500">
-          <div className="flex items-center gap-4">
-            <span>
-              {wordCount} {t("app.wordCount")}
-            </span>
-            <span>
-              {characterCount} {t("app.characterCount")}
-            </span>
-            {lastSaved && (
-              <span>
-                {t("app.autoSave")}: {lastSaved.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Select value={viewMode} onValueChange={(value: "single" | "book") => setViewMode(value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="single">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    {t("app.singlePage")}
-                  </div>
-                </SelectItem>
-                <SelectItem value="book">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    {t("app.bookView")}
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={pageSize} onValueChange={(value: "a4" | "letter" | "a5") => setPageSize(value)}>
-              <SelectTrigger className="w-20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="a4">A4</SelectItem>
-                <SelectItem value="letter">Letter</SelectItem>
-                <SelectItem value="a5">A5</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="p-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Focus exercise card */}
-          {showExerciseCard && (
-            <Card className="mb-6 border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20">
+      {/* Main Content */}
+      <main className="container mx-auto p-4">
+        <div className="relative">
+          {/* Focus Exercise Suggestion Card */}
+          {showSuggestion && (
+            <Card className="mb-4 border-dashed">
               <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Lightbulb className="h-5 w-5 text-yellow-500 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{t("focus.contextualPrompt")}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {focusExercises[currentExerciseIndex].prompt}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleUseExercise(focusExercises[currentExerciseIndex])}
-                      >
-                        {t("focus.tryExercise")}
-                      </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Brain className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <h3 className="font-medium text-sm">{t("focus.suggestion.title")}</h3>
+                      <p className="text-xs text-muted-foreground">{t("focus.suggestion.description")}</p>
                     </div>
                   </div>
+                  <Button variant="outline" size="sm" onClick={handleSuggestionClick} className="gap-2 bg-transparent">
+                    <Lightbulb className="w-4 h-4" />
+                    {t("focus.suggestion.button")}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Writing area */}
-          <Card
-            className={`${
-              pageSize === "a4" ? "max-w-[210mm]" : pageSize === "letter" ? "max-w-[8.5in]" : "max-w-[148mm]"
-            } mx-auto`}
+          {/* Writing Area */}
+          <div
+            className={`mx-auto ${pageSize === "A4" ? "max-w-4xl" : pageSize === "Letter" ? "max-w-4xl" : "max-w-2xl"}`}
           >
-            <CardContent className="p-0">
+            <div className={`bg-card rounded-lg shadow-sm ${viewMode === "book" ? "min-h-[800px]" : "min-h-[600px]"}`}>
               <Textarea
                 ref={textareaRef}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={handleContentChange}
                 placeholder={t("app.placeholder")}
-                className={`min-h-[600px] border-0 resize-none focus:ring-0 text-lg leading-relaxed ${
-                  viewMode === "book" ? "columns-2 gap-8" : ""
-                }`}
+                className="w-full h-full min-h-[600px] resize-none border-0 bg-transparent p-8 text-base leading-relaxed focus-visible:ring-0"
+                style={{
+                  fontFamily: "ui-serif, Georgia, Cambria, serif",
+                  lineHeight: "1.8",
+                }}
               />
-            </CardContent>
-          </Card>
-
-          {/* Timestamp button */}
-          {timestampFormat !== "none" && (
-            <div className="text-center mt-4">
-              <Button variant="outline" onClick={addTimestamp}>
-                Add {t("app.timestamp")}
-              </Button>
             </div>
-          )}
+          </div>
+
+          {/* Status Bar */}
+          <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+            <div className="flex items-center gap-4">
+              <span>
+                {wordCount} {t("app.wordCount")}
+              </span>
+              <span>
+                {charCount} {t("app.charCount")}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {autoSaveStatus === "saving" && <span className="text-yellow-600">{t("app.saving")}</span>}
+              {autoSaveStatus === "saved" && <span className="text-green-600">{t("app.autoSaved")}</span>}
+            </div>
+          </div>
         </div>
       </main>
+
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept=".txt,.md,.doc,.docx" onChange={handleFileRead} className="hidden" />
+
+      {/* PIN Setup Dialog */}
+      <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("app.setPinTitle")}</DialogTitle>
+            <DialogDescription>{t("app.setPinDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="set-pin">{t("app.enterPin")}</Label>
+              <Input
+                id="set-pin"
+                type="password"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSetPin()}
+                className="text-center text-2xl tracking-widest"
+                placeholder="••••"
+              />
+            </div>
+            <Button onClick={handleSetPin} className="w-full">
+              {t("app.pin")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
