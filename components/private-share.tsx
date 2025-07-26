@@ -1,237 +1,275 @@
 "use client"
 
+import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Send, Copy, Download, QrCode, Lock, Unlock } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Copy, Eye, EyeOff, QrCode } from "lucide-react"
 import { QRCodeGenerator } from "./qr-code-generator"
 
 interface PrivateShareProps {
   content: string
   quickNotes: string
+  icon: React.ReactNode
 }
 
-export function PrivateShare({ content, quickNotes }: PrivateShareProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [password, setPassword] = useState("")
-  const [encryptedData, setEncryptedData] = useState("")
-  const [decryptedData, setDecryptedData] = useState("")
-  const [decryptPassword, setDecryptPassword] = useState("")
-  const [encryptedInput, setEncryptedInput] = useState("")
-  const [shareMode, setShareMode] = useState<"content" | "notes">("content")
-
-  // Simple XOR encryption (for demo - use proper crypto in production)
-  const encrypt = (text: string, key: string): string => {
-    let result = ""
-    for (let i = 0; i < text.length; i++) {
-      result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length))
-    }
-    return btoa(result) // Base64 encode
+// Simple XOR encryption for basic privacy
+const encrypt = (text: string, key: string): string => {
+  let result = ""
+  for (let i = 0; i < text.length; i++) {
+    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length))
   }
+  return btoa(result) // Base64 encode
+}
 
-  const decrypt = (encryptedText: string, key: string): string => {
-    try {
-      const decoded = atob(encryptedText) // Base64 decode
-      let result = ""
-      for (let i = 0; i < decoded.length; i++) {
-        result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length))
-      }
-      return result
-    } catch {
-      return "Invalid encrypted data or password"
+const decrypt = (encryptedText: string, key: string): string => {
+  try {
+    const decoded = atob(encryptedText) // Base64 decode
+    let result = ""
+    for (let i = 0; i < decoded.length; i++) {
+      result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length))
     }
+    return result
+  } catch {
+    return "Invalid encrypted data or key"
+  }
+}
+
+export function PrivateShare({ content, quickNotes, icon }: PrivateShareProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [shareKey, setShareKey] = useState("")
+  const [encryptedData, setEncryptedData] = useState("")
+  const [decryptKey, setDecryptKey] = useState("")
+  const [decryptedData, setDecryptedData] = useState("")
+  const [showDecrypted, setShowDecrypted] = useState(false)
+  const [mode, setMode] = useState<"encrypt" | "decrypt">("encrypt")
+  const [showQR, setShowQR] = useState(false)
+
+  const generateShareKey = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    let result = ""
+    for (let i = 0; i < 12; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setShareKey(result)
   }
 
   const handleEncrypt = () => {
-    if (!password) return
-    const dataToEncrypt = shareMode === "content" ? content : quickNotes
-    const encrypted = encrypt(dataToEncrypt, password)
+    if (!shareKey) {
+      generateShareKey()
+      return
+    }
+
+    const dataToEncrypt = JSON.stringify({
+      content,
+      quickNotes,
+      timestamp: Date.now(),
+    })
+
+    const encrypted = encrypt(dataToEncrypt, shareKey)
     setEncryptedData(encrypted)
   }
 
   const handleDecrypt = () => {
-    if (!decryptPassword || !encryptedInput) return
-    const decrypted = decrypt(encryptedInput, decryptPassword)
-    setDecryptedData(decrypted)
+    if (!decryptKey || !encryptedData) return
+
+    const decrypted = decrypt(encryptedData, decryptKey)
+    try {
+      const parsed = JSON.parse(decrypted)
+      setDecryptedData(
+        `Content:\n${parsed.content}\n\nQuick Notes:\n${parsed.quickNotes}\n\nShared: ${new Date(parsed.timestamp).toLocaleString()}`,
+      )
+    } catch {
+      setDecryptedData(decrypted)
+    }
   }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
   }
 
-  const downloadEncrypted = () => {
-    if (!encryptedData) return
-    const blob = new Blob([encryptedData], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `qi-encrypted-${Date.now()}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
+  const reset = () => {
+    setShareKey("")
+    setEncryptedData("")
+    setDecryptKey("")
+    setDecryptedData("")
+    setShowDecrypted(false)
+    setShowQR(false)
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open)
+        if (!open) reset()
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" title="Private Share">
-          <Send className="h-4 w-4" />
+        <Button variant="ghost" size="sm">
+          {icon}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Private Share
-          </DialogTitle>
-          <DialogDescription>
-            Share your content privately using encryption and QR codes. No external services required.
-          </DialogDescription>
+          <DialogTitle>Private Share</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="encrypt" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="encrypt">Encrypt & Share</TabsTrigger>
-            <TabsTrigger value="decrypt">Decrypt & Receive</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          {/* Mode Toggle */}
+          <div className="flex gap-2">
+            <Button variant={mode === "encrypt" ? "default" : "outline"} onClick={() => setMode("encrypt")} size="sm">
+              Encrypt & Share
+            </Button>
+            <Button variant={mode === "decrypt" ? "default" : "outline"} onClick={() => setMode("decrypt")} size="sm">
+              Decrypt Received
+            </Button>
+          </div>
 
-          <TabsContent value="encrypt" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Encrypt Your Content</CardTitle>
-                <CardDescription>
-                  Choose what to share and set a password. Share the encrypted data and password separately.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>What to share</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={shareMode === "content" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setShareMode("content")}
-                    >
-                      Main Content ({content.length} chars)
-                    </Button>
-                    <Button
-                      variant={shareMode === "notes" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setShareMode("notes")}
-                    >
-                      Quick Notes ({quickNotes.length} chars)
-                    </Button>
-                  </div>
-                </div>
+          {mode === "encrypt" ? (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Encrypt your content with a secure key for private sharing. No data is sent to any server.
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Encryption Password</Label>
+              {/* Generate/Set Key */}
+              <div className="space-y-2">
+                <Label>Encryption Key</Label>
+                <div className="flex gap-2">
                   <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter a strong password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter custom key or generate one"
+                    value={shareKey}
+                    onChange={(e) => setShareKey(e.target.value)}
                   />
+                  <Button onClick={generateShareKey} variant="outline">
+                    Generate
+                  </Button>
                 </div>
+              </div>
 
-                <Button onClick={handleEncrypt} disabled={!password} className="w-full">
-                  <Lock className="h-4 w-4 mr-2" />
-                  Encrypt Content
-                </Button>
+              {/* Encrypt Button */}
+              <Button onClick={handleEncrypt} disabled={!shareKey} className="w-full">
+                Encrypt Content
+              </Button>
 
-                {encryptedData && (
-                  <div className="space-y-3 p-4 bg-muted rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Encrypted Data</Label>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => copyToClipboard(encryptedData)}>
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copy
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={downloadEncrypted}>
-                          <Download className="h-3 w-3 mr-1" />
-                          Download
+              {/* Encrypted Result */}
+              {encryptedData && (
+                <div className="space-y-3">
+                  <Label>Encrypted Data (share this)</Label>
+                  <Card>
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Encrypted Content</span>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => copyToClipboard(encryptedData)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setShowQR(!showQR)}>
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <Textarea value={encryptedData} readOnly className="font-mono text-xs h-24 resize-none" />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Decryption Key (share separately)</span>
+                        <Button size="sm" variant="ghost" onClick={() => copyToClipboard(shareKey)}>
+                          <Copy className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
-                    <Textarea value={encryptedData} readOnly className="font-mono text-xs" rows={4} />
+                      <Input value={shareKey} readOnly className="font-mono" />
+                    </CardContent>
+                  </Card>
 
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-2">
-                        <QrCode className="h-4 w-4" />
-                        QR Code
-                      </Label>
-                      <QRCodeGenerator data={encryptedData} />
-                    </div>
+                  {showQR && (
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="text-center space-y-3">
+                          <Label>QR Code for Encrypted Data</Label>
+                          <QRCodeGenerator data={encryptedData} />
+                          <p className="text-xs text-muted-foreground">
+                            Scan this QR code to get the encrypted data. The key must be shared separately.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
+                    <strong>Security Note:</strong> Share the encrypted data and key through different channels for
+                    better security. The encryption is basic and suitable for casual privacy, not sensitive data.
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="decrypt" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Decrypt Received Content</CardTitle>
-                <CardDescription>Paste the encrypted data and enter the password to decrypt.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="encrypted-input">Encrypted Data</Label>
-                  <Textarea
-                    id="encrypted-input"
-                    placeholder="Paste encrypted data here..."
-                    value={encryptedInput}
-                    onChange={(e) => setEncryptedInput(e.target.value)}
-                    className="font-mono text-xs"
-                    rows={4}
-                  />
                 </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Decrypt content that was shared with you using the encryption key.
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="decrypt-password">Password</Label>
-                  <Input
-                    id="decrypt-password"
-                    type="password"
-                    placeholder="Enter password"
-                    value={decryptPassword}
-                    onChange={(e) => setDecryptPassword(e.target.value)}
-                  />
-                </div>
+              {/* Encrypted Data Input */}
+              <div className="space-y-2">
+                <Label>Encrypted Data</Label>
+                <Textarea
+                  placeholder="Paste the encrypted data here"
+                  value={encryptedData}
+                  onChange={(e) => setEncryptedData(e.target.value)}
+                  className="font-mono text-xs h-24"
+                />
+              </div>
 
-                <Button onClick={handleDecrypt} disabled={!decryptPassword || !encryptedInput} className="w-full">
-                  <Unlock className="h-4 w-4 mr-2" />
-                  Decrypt Content
-                </Button>
+              {/* Decryption Key Input */}
+              <div className="space-y-2">
+                <Label>Decryption Key</Label>
+                <Input
+                  placeholder="Enter the decryption key"
+                  value={decryptKey}
+                  onChange={(e) => setDecryptKey(e.target.value)}
+                  className="font-mono"
+                />
+              </div>
 
-                {decryptedData && (
-                  <div className="space-y-2 p-4 bg-muted rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Decrypted Content</Label>
-                      <Button size="sm" variant="outline" onClick={() => copyToClipboard(decryptedData)}>
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy
-                      </Button>
-                    </div>
-                    <Textarea value={decryptedData} readOnly className="font-mono text-sm" rows={8} />
+              {/* Decrypt Button */}
+              <Button onClick={handleDecrypt} disabled={!encryptedData || !decryptKey} className="w-full">
+                Decrypt Content
+              </Button>
+
+              {/* Decrypted Result */}
+              {decryptedData && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Decrypted Content</Label>
+                    <Button size="sm" variant="ghost" onClick={() => setShowDecrypted(!showDecrypted)}>
+                      {showDecrypted ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  <Card>
+                    <CardContent className="p-3">
+                      <Textarea
+                        value={showDecrypted ? decryptedData : "••••••••••••••••••••"}
+                        readOnly
+                        className="font-mono text-sm h-48 resize-none"
+                      />
+                    </CardContent>
+                  </Card>
+                  <Button onClick={() => copyToClipboard(decryptedData)} variant="outline" className="w-full">
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Decrypted Content
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )

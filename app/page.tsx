@@ -1,6 +1,4 @@
 "use client"
-
-import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -19,6 +17,11 @@ import {
   StickyNote,
   ChevronDown,
   Share2,
+  TagIcon,
+  Plus,
+  X,
+  Filter,
+  Hash,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -26,7 +29,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { PrivateShare } from "@/components/private-share"
+import { TagManager } from "@/components/tag-manager"
 
 // Storage keys
 const STORAGE_KEY = "qi-content"
@@ -34,12 +40,34 @@ const PIN_KEY = "qi-pin"
 const LOCKED_KEY = "qi-locked"
 const TIMESTAMP_SETTINGS_KEY = "qi-timestamp-settings"
 const QUICK_NOTES_KEY = "qi-quick-notes"
+const TAGS_KEY = "qi-tags"
+const CONTENT_TAGS_KEY = "qi-content-tags"
 
-// Timestamp settings interface
+// Interfaces
 interface TimestampSettings {
   enabled: boolean
   format: "datetime" | "date" | "time"
 }
+
+interface ContentSection {
+  id: string
+  content: string
+  tags: string[]
+  timestamp: number
+}
+
+// Predefined tag colors
+const TAG_COLORS = [
+  "#ef4444", // red
+  "#f97316", // orange
+  "#eab308", // yellow
+  "#22c55e", // green
+  "#06b6d4", // cyan
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#6b7280", // gray
+]
 
 // Word count utility
 const getWordCount = (text: string) => {
@@ -61,18 +89,26 @@ export default function QI() {
   const [focusMode, setFocusMode] = useState(false)
   const [showQuickNotes, setShowQuickNotes] = useState(false)
 
+  // Tag state
+  const [tags, setTags] = useState([])
+  const [contentSections, setContentSections] = useState([])
+  const [selectedTags, setSelectedTags] = useState([])
+  const [showTagManager, setShowTagManager] = useState(false)
+  const [newTagName, setNewTagName] = useState("")
+  const [showTagInput, setShowTagInput] = useState(false)
+
   // Timestamp state
-  const [timestampSettings, setTimestampSettings] = useState<TimestampSettings>({
+  const [timestampSettings, setTimestampSettings] = useState({
     enabled: true,
     format: "datetime",
   })
 
   // Refs
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const quickNotesRef = useRef<HTMLTextAreaElement>(null)
-  const saveTimeoutRef = useRef<NodeJS.Timeout>()
-  const lastActivityRef = useRef<number>(Date.now())
-  const activityTimeoutRef = useRef<NodeJS.Timeout>()
+  const textareaRef = useRef(null)
+  const quickNotesRef = useRef(null)
+  const saveTimeoutRef = useRef(null)
+  const lastActivityRef = useRef(Date.now())
+  const activityTimeoutRef = useRef(null)
 
   // Theme
   const { theme, setTheme } = useTheme()
@@ -88,6 +124,8 @@ export default function QI() {
     const savedLocked = localStorage.getItem(LOCKED_KEY)
     const savedTimestampSettings = localStorage.getItem(TIMESTAMP_SETTINGS_KEY)
     const savedQuickNotes = localStorage.getItem(QUICK_NOTES_KEY)
+    const savedTags = localStorage.getItem(TAGS_KEY)
+    const savedContentTags = localStorage.getItem(CONTENT_TAGS_KEY)
 
     if (savedContent) {
       setContent(savedContent)
@@ -107,10 +145,18 @@ export default function QI() {
     if (savedTimestampSettings) {
       setTimestampSettings(JSON.parse(savedTimestampSettings))
     }
+
+    if (savedTags) {
+      setTags(JSON.parse(savedTags))
+    }
+
+    if (savedContentTags) {
+      setContentSections(JSON.parse(savedContentTags))
+    }
   }, [])
 
   // Auto-save functionality
-  const saveContent = useCallback((newContent: string) => {
+  const saveContent = useCallback((newContent) => {
     setIsSaving(true)
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
@@ -122,12 +168,20 @@ export default function QI() {
     }, 500)
   }, [])
 
-  const saveQuickNotes = useCallback((newNotes: string) => {
+  const saveQuickNotes = useCallback((newNotes) => {
     localStorage.setItem(QUICK_NOTES_KEY, newNotes)
   }, [])
 
+  const saveTags = useCallback((newTags) => {
+    localStorage.setItem(TAGS_KEY, JSON.stringify(newTags))
+  }, [])
+
+  const saveContentSections = useCallback((sections) => {
+    localStorage.setItem(CONTENT_TAGS_KEY, JSON.stringify(sections))
+  }, [])
+
   // Handle content change
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleContentChange = (e) => {
     const newContent = e.target.value
     setContent(newContent)
     saveContent(newContent)
@@ -149,14 +203,98 @@ export default function QI() {
   }
 
   // Handle quick notes change
-  const handleQuickNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleQuickNotesChange = (e) => {
     const newNotes = e.target.value
     setQuickNotes(newNotes)
     saveQuickNotes(newNotes)
   }
 
+  // Tag management functions
+  const createTag = (name, color) => {
+    const newTag = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      color: color || TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)],
+    }
+    const updatedTags = [...tags, newTag]
+    setTags(updatedTags)
+    saveTags(updatedTags)
+    return newTag
+  }
+
+  const deleteTag = (tagId) => {
+    const updatedTags = tags.filter((tag) => tag.id !== tagId)
+    setTags(updatedTags)
+    saveTags(updatedTags)
+
+    // Remove tag from all content sections
+    const updatedSections = contentSections.map((section) => ({
+      ...section,
+      tags: section.tags.filter((id) => id !== tagId),
+    }))
+    setContentSections(updatedSections)
+    saveContentSections(updatedSections)
+
+    // Remove from selected tags
+    setSelectedTags((prev) => prev.filter((id) => id !== tagId))
+  }
+
+  const addTagToSelection = () => {
+    if (!textareaRef.current || !newTagName.trim()) return
+
+    const textarea = textareaRef.current
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = content.substring(start, end)
+
+    if (selectedText.trim()) {
+      // Find or create tag
+      let tag = tags.find((t) => t.name.toLowerCase() === newTagName.toLowerCase())
+      if (!tag) {
+        tag = createTag(newTagName)
+      }
+
+      // Create or update content section
+      const sectionId = `${start}-${end}-${Date.now()}`
+      const newSection = {
+        id: sectionId,
+        content: selectedText,
+        tags: [tag.id],
+        timestamp: Date.now(),
+      }
+
+      const updatedSections = [...contentSections, newSection]
+      setContentSections(updatedSections)
+      saveContentSections(updatedSections)
+
+      setNewTagName("")
+      setShowTagInput(false)
+    }
+  }
+
+  const toggleTagFilter = (tagId) => {
+    setSelectedTags((prev) => (prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]))
+  }
+
+  const clearTagFilters = () => {
+    setSelectedTags([])
+  }
+
+  // Get filtered content based on selected tags
+  const getFilteredContent = () => {
+    if (selectedTags.length === 0) return content
+
+    const relevantSections = contentSections.filter((section) =>
+      section.tags.some((tagId) => selectedTags.includes(tagId)),
+    )
+
+    if (relevantSections.length === 0) return ""
+
+    return relevantSections.map((section) => section.content).join("\n\n---\n\n")
+  }
+
   // Timestamp functions
-  const formatTimestamp = (format: string) => {
+  const formatTimestamp = (format) => {
     const now = new Date()
     switch (format) {
       case "datetime":
@@ -191,7 +329,7 @@ export default function QI() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e) => {
       // Timestamp shortcut (Ctrl+T or Cmd+T)
       if ((e.ctrlKey || e.metaKey) && e.key === "t") {
         e.preventDefault()
@@ -203,6 +341,12 @@ export default function QI() {
         e.preventDefault()
         setFocusMode(!focusMode)
       }
+
+      // Tag shortcut (Ctrl+Shift+T or Cmd+Shift+T)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "T") {
+        e.preventDefault()
+        setShowTagInput(true)
+      }
     }
 
     document.addEventListener("keydown", handleKeyDown)
@@ -210,7 +354,7 @@ export default function QI() {
   }, [focusMode])
 
   // Handle double enter for timestamp
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDownForTextarea = (e) => {
     if (e.key === "Enter" && timestampSettings.enabled) {
       const now = Date.now()
       const timeSinceLastActivity = now - lastActivityRef.current
@@ -248,13 +392,14 @@ export default function QI() {
   }
 
   // Export functions
-  const exportContent = (format: "txt" | "pdf" | "html" | "md") => {
+  const exportContent = (format) => {
     const timestamp = new Date().toISOString().split("T")[0]
     const filename = `qi-export-${timestamp}`
+    const exportContent = selectedTags.length > 0 ? getFilteredContent() : content
 
     switch (format) {
       case "txt":
-        const blob = new Blob([content], { type: "text/plain" })
+        const blob = new Blob([exportContent], { type: "text/plain" })
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
@@ -276,7 +421,7 @@ export default function QI() {
                   @media print { body { margin: 0; } }
                 </style>
               </head>
-              <body>${content}</body>
+              <body>${exportContent}</body>
             </html>
           `)
           printWindow.document.close()
@@ -294,7 +439,7 @@ export default function QI() {
         body { font-family: monospace; white-space: pre-wrap; margin: 40px; background: white; color: black; }
     </style>
 </head>
-<body>${content.replace(/\n/g, "<br>")}</body>
+<body>${exportContent.replace(/\n/g, "<br>")}</body>
 </html>`
         const htmlBlob = new Blob([htmlContent], { type: "text/html" })
         const htmlUrl = URL.createObjectURL(htmlBlob)
@@ -306,7 +451,7 @@ export default function QI() {
         break
 
       case "md":
-        const mdContent = `# QI Export\n\n${content}`
+        const mdContent = `# QI Export\n\n${exportContent}`
         const mdBlob = new Blob([mdContent], { type: "text/markdown" })
         const mdUrl = URL.createObjectURL(mdBlob)
         const mdA = document.createElement("a")
@@ -319,12 +464,12 @@ export default function QI() {
   }
 
   // Import function
-  const importFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const importFile = (e) => {
     const file = e.target.files?.[0]
     if (file && file.type === "text/plain") {
       const reader = new FileReader()
       reader.onload = (event) => {
-        const importedContent = event.target?.result as string
+        const importedContent = event.target?.result
         setContent(importedContent)
         saveContent(importedContent)
       }
@@ -334,7 +479,7 @@ export default function QI() {
   }
 
   // Update timestamp settings
-  const updateTimestampSettings = (newSettings: Partial<TimestampSettings>) => {
+  const updateTimestampSettings = (newSettings) => {
     const updated = { ...timestampSettings, ...newSettings }
     setTimestampSettings(updated)
     localStorage.setItem(TIMESTAMP_SETTINGS_KEY, JSON.stringify(updated))
@@ -407,6 +552,16 @@ export default function QI() {
 
                 <div className="space-y-3">
                   <h3 className="font-semibold flex items-center gap-2">
+                    <TagIcon className="h-4 w-4" />
+                    Smart Tagging
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Select text and press Ctrl+Shift+T to tag content. Filter and organize easily.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="font-semibold flex items-center gap-2">
                     <Eye className="h-4 w-4" />
                     Focus Mode
                   </h3>
@@ -448,12 +603,13 @@ export default function QI() {
         </Button>
         <Textarea
           ref={textareaRef}
-          value={content}
+          value={selectedTags.length > 0 ? getFilteredContent() : content}
           onChange={handleContentChange}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleKeyDownForTextarea}
           placeholder="Start writing..."
           className="min-h-screen w-full border-0 resize-none focus:ring-0 text-lg leading-relaxed p-8 pt-16"
           style={{ fontFamily: "ui-monospace, monospace" }}
+          readOnly={selectedTags.length > 0}
         />
       </div>
     )
@@ -478,6 +634,101 @@ export default function QI() {
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Tag Manager */}
+            <Dialog open={showTagManager} onOpenChange={setShowTagManager}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <TagIcon className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Tag Manager</DialogTitle>
+                </DialogHeader>
+                <TagManager
+                  tags={tags}
+                  onCreateTag={createTag}
+                  onDeleteTag={deleteTag}
+                  contentSections={contentSections}
+                />
+              </DialogContent>
+            </Dialog>
+
+            {/* Quick Tag Input */}
+            <Popover open={showTagInput} onOpenChange={setShowTagInput}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" title="Tag Selection (Ctrl+Shift+T)">
+                  <Hash className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="tag-name">Tag selected text</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="tag-name"
+                        placeholder="Enter tag name"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addTagToSelection()}
+                      />
+                      <Button onClick={addTagToSelection} size="sm">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select text in the editor first, then add a tag to organize that content.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Tag Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className={selectedTags.length > 0 ? "bg-accent" : ""}>
+                  <Filter className="h-4 w-4" />
+                  {selectedTags.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
+                      {selectedTags.length}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Filter by tags</Label>
+                    {selectedTags.length > 0 && (
+                      <Button variant="ghost" size="sm" onClick={clearTagFilters}>
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant={selectedTags.includes(tag.id) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        style={{
+                          backgroundColor: selectedTags.includes(tag.id) ? tag.color : "transparent",
+                          borderColor: tag.color,
+                          color: selectedTags.includes(tag.id) ? "white" : tag.color,
+                        }}
+                        onClick={() => toggleTagFilter(tag.id)}
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                  </div>
+                  {tags.length === 0 && <p className="text-sm text-muted-foreground">No tags created yet.</p>}
+                </div>
+              </PopoverContent>
+            </Popover>
+
             {/* Quick Notes Toggle */}
             <Button
               variant="ghost"
@@ -518,9 +769,7 @@ export default function QI() {
                     <Label>Timestamp Format</Label>
                     <Select
                       value={timestampSettings.format}
-                      onValueChange={(value: "datetime" | "date" | "time") =>
-                        updateTimestampSettings({ format: value })
-                      }
+                      onValueChange={(value) => updateTimestampSettings({ format: value })}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -548,10 +797,18 @@ export default function QI() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => exportContent("txt")}>Export as TXT</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportContent("pdf")}>Export as PDF</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportContent("html")}>Export as HTML</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportContent("md")}>Export as Markdown</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportContent("txt")}>
+                  Export as TXT {selectedTags.length > 0 && "(Filtered)"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportContent("pdf")}>
+                  Export as PDF {selectedTags.length > 0 && "(Filtered)"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportContent("html")}>
+                  Export as HTML {selectedTags.length > 0 && "(Filtered)"}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportContent("md")}>
+                  Export as Markdown {selectedTags.length > 0 && "(Filtered)"}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -564,7 +821,11 @@ export default function QI() {
             </Button>
 
             {/* Private Share */}
-            <PrivateShare content={content} quickNotes={quickNotes} icon={<Share2 className="h-4 w-4" />} />
+            <PrivateShare
+              content={selectedTags.length > 0 ? getFilteredContent() : content}
+              quickNotes={quickNotes}
+              icon={<Share2 className="h-4 w-4" />}
+            />
 
             {/* Print */}
             <Button variant="ghost" size="sm" onClick={() => window.print()}>
@@ -616,18 +877,45 @@ export default function QI() {
         </div>
       </header>
 
+      {/* Active Tags Display */}
+      {selectedTags.length > 0 && (
+        <div className="border-b bg-muted/50 px-4 py-2">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Filtering by:</span>
+            {selectedTags.map((tagId) => {
+              const tag = tags.find((t) => t.id === tagId)
+              return tag ? (
+                <Badge
+                  key={tag.id}
+                  variant="secondary"
+                  style={{ backgroundColor: tag.color, color: "white" }}
+                  className="flex items-center gap-1"
+                >
+                  {tag.name}
+                  <X className="h-3 w-3 cursor-pointer" onClick={() => toggleTagFilter(tag.id)} />
+                </Badge>
+              ) : null
+            })}
+            <Button variant="ghost" size="sm" onClick={clearTagFilters}>
+              Clear all
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex">
         {/* Main Content */}
         <div className={`flex-1 ${showQuickNotes ? "pr-80" : ""}`}>
           <div className="container px-4 py-6">
             <Textarea
               ref={textareaRef}
-              value={content}
+              value={selectedTags.length > 0 ? getFilteredContent() : content}
               onChange={handleContentChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Start writing..."
+              onKeyDown={handleKeyDownForTextarea}
+              placeholder={selectedTags.length > 0 ? "Filtered content (read-only)" : "Start writing..."}
               className="min-h-[calc(100vh-8rem)] w-full border-0 resize-none focus:ring-0 text-base leading-relaxed"
               style={{ fontFamily: "ui-monospace, monospace" }}
+              readOnly={selectedTags.length > 0}
             />
           </div>
         </div>
